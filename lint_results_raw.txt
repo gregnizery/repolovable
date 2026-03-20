@@ -1,0 +1,142 @@
+
+> vite_react_shadcn_ts@0.0.0 lint
+> eslint .
+
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/PaiementFormDialog.tsx
+  111:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/dashboard/NotificationsSection.tsx
+  27:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  40:45  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  53:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/badge.tsx
+  29:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/button.tsx
+  47:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/command.tsx
+  24:11  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/form.tsx
+  129:10  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/navigation-menu.tsx
+  111:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/sidebar.tsx
+  636:3  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/sonner.tsx
+  27:19  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/textarea.tsx
+  5:18  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/components/ui/toggle.tsx
+  37:18  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/hooks/use-auth.tsx
+  65:17  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/hooks/use-data.ts
+  1117:32  error  Empty block statement  no-empty
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/hooks/use-notifications.ts
+  60:8  warning  React Hook useEffect has a missing dependency: 'user'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/hooks/use-realtime-sync.ts
+  32:6  warning  React Hook useEffect has a missing dependency: 'queryKeys'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/hooks/use-theme.tsx
+  38:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/BatchMovements.tsx
+   88:6  warning  React Hook useCallback has a missing dependency: 'validateItem'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  126:6  warning  React Hook useCallback has a missing dependency: 'validateItem'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/DevisDetail.tsx
+  268:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  275:69  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/DevisForm.tsx
+  416:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  655:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  776:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  848:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  855:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/FactureDetail.tsx
+  280:68  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  327:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  376:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/FactureForm.tsx
+  171:6   warning  React Hook useEffect has a missing dependency: 'typeParam'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  449:48  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  545:62  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+  552:51  error    Unexpected any. Specify a different type                                                                      @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/Materiel.tsx
+  106:106  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:33   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:31   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:71   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  131:31   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  135:35   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/MaterielDetail.tsx
+  182:25   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  224:105  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  226:31   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  245:80   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  245:110  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  245:163  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  249:29   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  252:97   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  252:129  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  281:48   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  361:41   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/MaterielForm.tsx
+  213:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  263:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/MissionDetail.tsx
+  432:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  471:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  489:70  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  503:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/ProviderDetail.tsx
+  147:101  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  152:101  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  159:101  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  184:78   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  191:78   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  216:62   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  225:195  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  276:104  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  284:95   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  292:95   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/Providers.tsx
+  183:61   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  186:102  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  190:61   error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  193:103  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/PublicClientPortal.tsx
+  187:6  warning  React Hook useEffect has a missing dependency: 'refresh'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/gregoirenizery/Downloads/planify2-main-3/src/pages/Settings.tsx
+  996:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/gregoirenizery/Downloads/planify2-main-3/supabase/functions/send-document-email/index.ts
+  187:5  error  'emitterCompany' is never reassigned. Use 'const' instead  prefer-const
+  188:5  error  'emitterName' is never reassigned. Use 'const' instead     prefer-const
+
+✖ 75 problems (60 errors, 15 warnings)
+

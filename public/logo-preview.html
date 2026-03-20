@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Propositions Logo Planify - Concepts "P"</title>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: #0f172a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 60px 20px;
+            margin: 0;
+            color: #f8fafc;
+        }
+
+        h1 {
+            margin-bottom: 12px;
+            font-weight: 800;
+            font-size: 2.8rem;
+            letter-spacing: -0.02em;
+            color: #fff;
+            text-align: center;
+        }
+
+        p.subtitle {
+            margin-bottom: 60px;
+            color: #94a3b8;
+            text-align: center;
+            font-size: 1.15rem;
+            max-width: 600px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 48px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .card {
+            background: #1e293b;
+            padding: 50px 40px;
+            border-radius: 32px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 35px 60px -15px rgba(67, 70, 232, 0.4);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .title {
+            font-weight: 700;
+            color: #fff;
+            font-size: 1.3rem;
+            text-align: center;
+            margin: 0;
+        }
+
+        .desc {
+            font-size: 0.95rem;
+            color: #94a3b8;
+            text-align: center;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        .svg-container {
+            width: 180px;
+            height: 180px;
+            filter: drop-shadow(0 15px 15px rgba(0, 0, 0, 0.2));
+        }
+
+        /* Shared styles for premium look */
+        .p-text {
+            font-family: 'Inter', sans-serif;
+            font-weight: 900;
+            fill: #fff;
+            font-size: 42px;
+        }
+
+        .accent-stroke {
+            stroke: #818CF8;
+            stroke-width: 2.5;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Identité Planify</h1>
+    <p class="subtitle">Exploration de la lettre "P" comme élément central de l'icône, fusionnée avec vos concepts
+        métiers.</p>
+
+    <div class="grid">
+
+        <!-- 1. P + Flèche (Dynamic Growth) -->
+        <div class="card">
+            <div class="svg-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="48" fill="url(#grad1)" />
+                    <!-- Thick Arrow Path holding the P -->
+                    <path d="M35 75V25C35 25 65 25 65 42C65 59 35 59 35 59" stroke="white" stroke-width="12"
+                        stroke-linecap="round" />
+                    <!-- Arrow head integrated into the P bar -->
+                    <path d="M70 20L85 20L85 35" stroke="white" stroke-width="8" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    <path d="M55 50L85 20" stroke="white" stroke-width="8" stroke-linecap="round" />
+                    <defs>
+                        <linearGradient id="grad1" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#6366F1" />
+                            <stop offset="1" stop-color="#4346E8" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="title">1. L'Élan (P + Flèche)</div>
+            <div class="desc">Le "P" se transforme en flèche ascendante, symbolisant la croissance et l'efficacité de
+                vos processus.</div>
+        </div>
+
+        <!-- 2. P dans le Carton (The Premium Box) -->
+        <div class="card">
+            <div class="svg-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Cube Background Structure -->
+                    <path d="M50 15 L85 32 V68 L50 85 L15 68 V32 Z" fill="url(#grad2)" />
+                    <!-- Inner Top Face (Lighter) -->
+                    <path d="M50 15 L85 32 L50 49 L15 32 Z" fill="white" fill-opacity="0.15" />
+                    <!-- The Letter P on the front face -->
+                    <text x="32" y="68" class="p-text" style="font-size: 36px; fill-opacity: 0.95;">P</text>
+                    <!-- Box Opening Flaps (Stylized) -->
+                    <path d="M15 32 L50 49 L50 15 L15 15 Z" fill="white" fill-opacity="0.1" />
+                    <path d="M85 32 L50 49 L50 15 L85 15 Z" fill="white" fill-opacity="0.05" />
+                    <!-- Connecting Lines -->
+                    <path d="M50 49 V85" stroke="white" stroke-opacity="0.2" stroke-width="2" />
+                    <path d="M15 32 L50 49 L85 32" stroke="white" stroke-opacity="0.3" stroke-width="2" />
+                    <defs>
+                        <linearGradient id="grad2" x1="50" y1="15" x2="50" y2="85" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#4F46E5" />
+                            <stop offset="1" stop-color="#312E81" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="title">2. Le Colis (P + Carton)</div>
+            <div class="desc">Une boîte de rangement premium avec le "P" de Planify marqué dessus. Évoque la logistique
+                et l'inventaire.</div>
+        </div>
+
+        <!-- 3. P dans l'Armoire (Structured Records) -->
+        <div class="card">
+            <div class="svg-container">
+                <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Cabinet Shell -->
+                    <rect x="18" y="15" width="64" height="70" rx="8" fill="url(#grad3)" />
+                    <!-- Top Drawer -->
+                    <rect x="24" y="21" width="52" height="28" rx="4" fill="white" fill-opacity="0.1" />
+                    <!-- Bottom Drawer -->
+                    <rect x="24" y="53" width="52" height="26" rx="4" fill="white" fill-opacity="0.05" />
+                    <!-- Large P integrated in the structure -->
+                    <text x="35" y="44" class="p-text" style="font-size: 28px;">P</text>
+                    <!-- Handles -->
+                    <rect x="45" y="42" width="10" height="3" rx="1.5" fill="white" fill-opacity="0.5" />
+                    <rect x="45" y="72" width="10" height="3" rx="1.5" fill="white" fill-opacity="0.5" />
+                    <!-- Detail Lines -->
+                    <path d="M18 51 H82" stroke="white" stroke-opacity="0.1" stroke-width="2" />
+                    <defs>
+                        <linearGradient id="grad3" x1="50" y1="15" x2="50" y2="85" gradientUnits="userSpaceOnUse">
+                            <stop stop-color="#6366F1" />
+                            <stop offset="1" stop-color="#4346E8" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <div class="title">3. L'Archive (P + Armoire)</div>
+            <div class="desc">Un classeur de gestion moderne. Symbolise la structure, les factures et le suivi
+                rigoureux.</div>
+        </div>
+
+    </div>
+
+    <p style="margin-top: 60px; color: #64748b; font-size: 0.9rem;">Rafraîchissez la page pour voir les dernières mises
+        à jour.</p>
+</body>
+
+</html>

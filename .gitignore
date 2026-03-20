@@ -1,0 +1,54 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Supabase secrets
+supabase/.temp
+supabase/.env
+.firebase/
+
+# Internal / Brain
+.antigravity/
+.gemini/
+brain/
+
+# Temporary / Diagnostic scripts
+_*.mjs
+_*.sql
+_*.cjs
+_*.json
+lint_results*.json
+push_error.txt
+pencil_exports/
+*.pdf
+shannon_security/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

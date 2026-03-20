@@ -1,0 +1,29 @@
+Agis comme un expert en branding et naming B2B.
+
+Je suis en train de lancer une application web / SaaS dédiée aux professionnels de l'événementiel (agences événementielles, wedding planners, prestataires techniques, DJs, traiteurs, etc.).
+
+Voici ce que fait l'application (actuellement appelée en interne "Planify") :
+- Gestion globale de l'activité commerciale : création et suivi de profils clients.
+- Planification des missions (événements) avec affectation d'équipe et de matériel.
+- Gestion financière de A à Z : création de devis 100% personnalisables, facturation, suivi des encaissements et calculs de rentabilité.
+- Génération de documents PDF au design premium et épuré.
+- Fonctionnalités avancées : calcul d'indemnités kilométriques via Google Maps, portail client privé par lien magique permettant la signature électronique de devis ou le téléversement de preuves de virement.
+
+L'objectif de cette app est de centraliser, moderniser et faire gagner un maximum de temps aux pros de l'événementiel, tout en leur offrant une image très haut de gamme auprès de leurs propres clients.
+
+Ton objectif : Me proposer 20 à 30 idées de noms de domaine pour cette application.
+
+Contraintes pour les noms de domaine :
+1. Le nom doit inspirer le professionnalisme, l'organisation, l'événementiel, la fluidité ou l'élévation.
+2. Il peut être en français, en anglais, ou un nom de marque abstrait (mais facile à retenir et à prononcer).
+3. Il doit être court (idéalement 2 ou 3 syllabes, moins de 10 lettres).
+4. Évite les tirets et les chiffres.
+5. Suggère pour chaque nom l'extension la plus cohérente (.com, .io, .co, .fr, .app).
+
+Organise tes propositions en 4 catégories :
+- Les descriptifs / fonctionnels (ex: EventManager.app)
+- Les évocateurs / métaphoriques (ex: Maestro.io, Flow.co)
+- Les modernes / tech inventés (ex: Planify.io, Elevat.co)
+- Les Premium / Luxe B2B (Mots élégants)
+
+Pour chaque nom, donne une très courte justification (1 ligne) expliquant pourquoi ce choix est pertinent par rapport à ma cible.
