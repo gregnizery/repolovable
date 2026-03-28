@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useClients, useDevis, useFacture, useCreateDevis, useUpdateDevis, useMissions, useMissionMateriel, useMissionAssignments, useDevisAttachments, useUploadDevisAttachment, useDeleteDevisAttachment, useProviders } from "@/hooks/use-data";
-import { ArrowLeft, Plus, Trash2, Save, Send, Loader2, Package, MapPin, Image as ImageIcon, FileText, Download, UploadCloud, Paperclip, X } from "lucide-react";
+import { useClients, useCurrentProfile, useDevis, useFacture, useCreateDevis, useUpdateDevis, useMissions, useMissionMateriel, useMissionAssignments, useDevisAttachments, useUploadDevisAttachment, useDeleteDevisAttachment, useProviders } from "@/hooks/use-data";
+import { ArrowLeft, ChevronDown, ChevronUp, Plus, Trash2, Save, Send, Loader2, Package, MapPin, Image as ImageIcon, FileText, Download, UploadCloud, Paperclip, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -19,7 +19,23 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Percent, Euro, User, Library } from "lucide-react";
 import { useInvoiceItemTemplates } from "@/hooks/use-invoice-templates";
 import { useTeam, useTeamMembers } from "@/hooks/use-team";
-import { useAuth } from "@/hooks/use-auth";
+import { A4DocumentPreview } from "@/components/documents/A4DocumentPreview";
+import { getAssignableProviders, normalizeAssignedProviderId } from "@/lib/provider-assignment";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  evaluateMissionReplacement,
+  getMissionReplacementStatusLabel,
+  type MissionReplacementQuote,
+} from "@/lib/devis-replacement";
 
 interface LineItem {
   id: string;
@@ -34,6 +50,8 @@ interface LineItem {
   providerId?: string | null;
 }
 
+type PendingSaveMode = "draft" | "send";
+type ReplacementDialogMode = "confirm" | "blocked" | null;
 
 export default function DevisForm() {
   const navigate = useNavigate();
@@ -51,9 +69,7 @@ export default function DevisForm() {
   const createDevis = useCreateDevis();
   const updateDevis = useUpdateDevis();
   const { data: templates = [] } = useInvoiceItemTemplates();
-  const { user } = useAuth();
-  const teamId = user ? undefined : undefined;
-
+  const { data: profile } = useCurrentProfile();
   const { data: providers = [] } = useProviders();
   const { data: attachments = [] } = useDevisAttachments(id);
   const uploadAttachment = useUploadDevisAttachment();
@@ -61,6 +77,7 @@ export default function DevisForm() {
 
   const { data: teamMembership } = useTeam();
   const { data: teamMembers = [] } = useTeamMembers(teamMembership?.team_id);
+  const assignableProviders = useMemo(() => getAssignableProviders(providers), [providers]);
 
   const [clientId, setClientId] = useState("");
   const [missionId, setMissionId] = useState("");
@@ -80,23 +97,32 @@ export default function DevisForm() {
   ]);
   const [globalDiscountAmount, setGlobalDiscountAmount] = useState<number>(0);
   const [globalDiscountType, setGlobalDiscountType] = useState<"percent" | "amount">("percent");
+  const [showDetailedEditor, setShowDetailedEditor] = useState(false);
+  const [saveFlowPending, setSaveFlowPending] = useState(false);
+  const [replacementDialogOpen, setReplacementDialogOpen] = useState(false);
+  const [replacementDialogMode, setReplacementDialogMode] = useState<ReplacementDialogMode>(null);
+  const [replacementQuotes, setReplacementQuotes] = useState<MissionReplacementQuote[]>([]);
+  const [pendingSaveMode, setPendingSaveMode] = useState<PendingSaveMode | null>(null);
 
   // Fetch mission materiel when a mission is selected
   const { data: missionMaterielData } = useMissionMateriel(missionId || undefined);
 
   // Fetch company settings to get origin and price per km
   const { data: whiteLabel } = useQuery({
-    queryKey: ["white-label-settings"],
+    queryKey: ["white-label-settings", teamMembership?.team_id],
     queryFn: async () => {
+      if (!teamMembership?.team_id) return {};
 
       const { data, error } = await (supabase as any)
         .from("white_label_settings")
         .select("company_address, price_per_km, is_tva_subject, tva_rates")
+        .eq("team_id", teamMembership.team_id)
         .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data || {};
     },
+    enabled: !!teamMembership?.team_id,
   });
 
   const [calculatingMileage, setCalculatingMileage] = useState(false);
@@ -143,7 +169,7 @@ export default function DevisForm() {
           discountAmount: Number(item.discount_amount) || 0,
 
           discountType: (item.discount_type as any) || "percent",
-          providerId: item.provider_id || null,
+          providerId: normalizeAssignedProviderId(item.provider_id || null, providers),
         })));
       }
     } else if (sourceDevis) {
@@ -166,7 +192,7 @@ export default function DevisForm() {
           discountAmount: Number(item.discount_amount) || 0,
 
           discountType: (item.discount_type as any) || "percent",
-          providerId: item.provider_id || null,
+          providerId: normalizeAssignedProviderId(item.provider_id || null, providers),
         })));
       }
     } else if (sourceFacture) {
@@ -190,7 +216,7 @@ export default function DevisForm() {
 
           discountType: (item.discount_type as any) || "percent",
 
-          providerId: (item as any).provider_id || null,
+          providerId: normalizeAssignedProviderId((item as any).provider_id || null, providers),
         })));
       }
     } else if (whiteLabel) {
@@ -202,7 +228,7 @@ export default function DevisForm() {
         setTvaRate(Number(whiteLabel.tva_rates[whiteLabel.tva_rates.length - 1]) / 100);
       }
     }
-  }, [existing, sourceDevis, sourceFacture, whiteLabel]);
+  }, [existing, sourceDevis, sourceFacture, whiteLabel, providers]);
 
   // Recalculate imported items when hours change
   useEffect(() => {
@@ -286,7 +312,7 @@ export default function DevisForm() {
           discountType: "percent" as const,
           baseHourlyRate: hourlyRate,
           materielName: name,
-          providerId: matchedProvider ? matchedProvider.id : null,
+          providerId: matchedProvider?.user_id || null,
         };
       })
       .filter(Boolean) as LineItem[];
@@ -365,7 +391,12 @@ export default function DevisForm() {
     }
   };
 
-  const addItem = () => setItems(prev => [...prev, { id: `item-${Date.now()}`, description: "", quantity: 1, unitPrice: 0, discountAmount: 0, discountType: "percent", providerId: null }]);
+  const addItem = useCallback(() => {
+    setItems((prev) => [
+      ...prev,
+      { id: `item-${Date.now()}`, description: "", quantity: 1, unitPrice: 0, discountAmount: 0, discountType: "percent", providerId: null },
+    ]);
+  }, []);
 
   const addTemplateLine = (templateId: string) => {
     const template = templates.find(t => t.id === templateId);
@@ -381,9 +412,16 @@ export default function DevisForm() {
     }]);
   };
 
-  const removeItem = (itemId: string) => { if (items.length > 1) setItems(prev => prev.filter(i => i.id !== itemId)); };
+  const removeItem = useCallback((itemId: string) => {
+    setItems((prev) => {
+      if (prev.length <= 1) return prev;
+      return prev.filter((item) => item.id !== itemId);
+    });
+  }, []);
 
-  const updateItem = (itemId: string, field: keyof LineItem, value: any) => setItems(prev => prev.map(i => i.id === itemId ? { ...i, [field]: value } : i));
+  const updateItem = useCallback((itemId: string, field: keyof LineItem, value: any) => {
+    setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, [field]: value } : item));
+  }, []);
 
   const totals = useMemo(() => {
     const rawTotalHT = items.reduce((sum, item) => {
@@ -407,29 +445,149 @@ export default function DevisForm() {
 
   const selectedMission = missions.find((m: any) => m.id === missionId);
 
-  const handleSave = async (asDraft: boolean) => {
-    // Before creating or updating, if linked to a mission, cancel existing active devis for this mission
-    if (!isEdit && missionId) {
-      try {
-        const { data: oldDevis, error: fetchError } = await supabase
-          .from("devis")
-          .select("id")
-          .eq("mission_id", missionId)
-          .neq("status", "annulé")
-          .neq("status", "refusé");
+  const previewNumber = existing?.number || sourceDevis?.number || sourceFacture?.number || "DEVIS EN PRÉPARATION";
+  const senderName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
+  const previewItems = useMemo(
+    () =>
+      items.map((item) => {
+        const lineBase = item.quantity * item.unitPrice;
+        const lineDiscount = item.discountType === "percent"
+          ? lineBase * (item.discountAmount / 100)
+          : item.discountAmount;
 
-        if (!fetchError && oldDevis && oldDevis.length > 0) {
-          const { error: updateError } = await supabase
-            .from("devis")
-            .update({ status: "annulé" })
-            .in("id", oldDevis.map(d => d.id));
+        return {
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          lineTotal: Math.max(0, lineBase - lineDiscount),
+        };
+      }),
+    [items],
+  );
 
-          if (!updateError) {
-            toast.info(`${oldDevis.length} devis obsolète(s) ont été automatiquement annulés pour cette mission.`);
-          }
-        }
-      } catch (err) {
-        console.error("Erreur lors de l'annulation des anciens devis:", err);
+  const handleA4ItemChange = useCallback((index: number, field: "description" | "quantity" | "unitPrice", value: string | number) => {
+    const item = items[index];
+    if (!item) return;
+
+    if (field === "description") {
+      updateItem(item.id, field, String(value));
+      return;
+    }
+
+    const numericValue = Number(value);
+    if (field === "quantity") {
+      updateItem(item.id, field, Math.max(1, Number.isFinite(numericValue) ? Math.round(numericValue) : 1));
+      return;
+    }
+
+    updateItem(item.id, field, Math.max(0, Number.isFinite(numericValue) ? numericValue : 0));
+  }, [items, updateItem]);
+
+  const handleA4RemoveItem = useCallback((index: number) => {
+    const item = items[index];
+    if (!item) return;
+    removeItem(item.id);
+  }, [items, removeItem]);
+
+  const resetReplacementDialog = () => {
+    setReplacementDialogOpen(false);
+    setReplacementDialogMode(null);
+    setReplacementQuotes([]);
+    setPendingSaveMode(null);
+  };
+
+  const a4Document = useMemo(
+    () => ({
+      type: "devis" as const,
+      number: previewNumber,
+      date,
+      validUntil,
+      notes,
+      tvaRate: tvaEnabled ? tvaRate : 0,
+      items: previewItems,
+      subtotalHT: totals.rawTotalHT,
+      discountAmount: totals.globalDiscount,
+      discountLabel:
+        totals.globalDiscount > 0
+          ? `Remise globale (${globalDiscountType === "percent" ? `${globalDiscountAmount}%` : `${globalDiscountAmount} EUR`})`
+          : undefined,
+      totalHT: totals.totalHT,
+      tvaAmount: totals.tva,
+      totalTTC: totals.totalTTC,
+      emitterName: senderName || undefined,
+      emitterCompany: profile?.company_name || "Planify",
+      emitterAddress: profile?.address || undefined,
+      emitterPhone: profile?.phone || undefined,
+      emitterEmail: undefined,
+      emitterSiret: profile?.siret || undefined,
+      emitterLogoUrl: profile?.company_logo_url || undefined,
+      emitterIban: profile?.iban || undefined,
+      emitterBic: profile?.bic || undefined,
+      recipientLabel: "Client",
+      recipientName: selectedClient?.name || "",
+      recipientCompany: selectedClient?.company || undefined,
+      recipientAddress: selectedClient?.address || undefined,
+      recipientEmail: selectedClient?.email || undefined,
+      recipientPhone: selectedClient?.phone || undefined,
+      editable: true,
+      clients: clients.map((client) => ({
+        id: client.id,
+        name: client.name,
+        company: client.company,
+      })),
+      onSelectClient: setClientId,
+      onChangeNotes: setNotes,
+      onChangeDate: setDate,
+      onChangeValidUntil: setValidUntil,
+      onChangeItem: handleA4ItemChange,
+      onAddItem: addItem,
+      onRemoveItem: handleA4RemoveItem,
+      accentColor: "hsl(var(--primary))",
+    }),
+    [
+      addItem,
+      clients,
+      date,
+      globalDiscountAmount,
+      globalDiscountType,
+      handleA4ItemChange,
+      handleA4RemoveItem,
+      notes,
+      previewItems,
+      previewNumber,
+      profile?.address,
+      profile?.bic,
+      profile?.company_logo_url,
+      profile?.company_name,
+      profile?.iban,
+      profile?.phone,
+      profile?.siret,
+      selectedClient?.address,
+      selectedClient?.company,
+      selectedClient?.email,
+      selectedClient?.name,
+      selectedClient?.phone,
+      senderName,
+      totals.globalDiscount,
+      totals.rawTotalHT,
+      totals.totalHT,
+      totals.totalTTC,
+      totals.tva,
+      tvaEnabled,
+      tvaRate,
+      validUntil,
+    ],
+  );
+
+  const persistDevis = async (asDraft: boolean, quotesToCancel: MissionReplacementQuote[] = []) => {
+    if (!isEdit && missionId && quotesToCancel.length > 0) {
+      const { error: cancelError } = await supabase
+        .from("devis")
+        .update({ status: "annulé" })
+        .in("id", quotesToCancel.map((quote) => quote.id));
+
+      if (cancelError) {
+        throw cancelError;
       }
     }
 
@@ -466,7 +624,68 @@ export default function DevisForm() {
     navigate("/finance/devis");
   };
 
-  const saving = createDevis.isPending || updateDevis.isPending;
+  const fetchMissionReplacementQuotes = async (selectedMissionId: string) => {
+    const { data, error } = await supabase
+      .from("devis")
+      .select("id, number, status")
+      .eq("mission_id", selectedMissionId)
+      .neq("status", "annulé")
+      .neq("status", "refusé");
+
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []) as MissionReplacementQuote[];
+  };
+
+  const handleSave = async (asDraft: boolean) => {
+    if (saveFlowPending) return;
+
+    setSaveFlowPending(true);
+    try {
+      if (!isEdit && missionId) {
+        const linkedQuotes = await fetchMissionReplacementQuotes(missionId);
+        const replacementCheck = evaluateMissionReplacement(linkedQuotes);
+
+        if (replacementCheck.mode !== "none") {
+          setReplacementQuotes(replacementCheck.quotes);
+          setPendingSaveMode(asDraft ? "draft" : "send");
+          setReplacementDialogMode(replacementCheck.mode);
+          setReplacementDialogOpen(true);
+          return;
+        }
+      }
+
+      await persistDevis(asDraft);
+    } catch (error) {
+      toast.error((error as Error).message || "Erreur lors de la préparation du devis.");
+    } finally {
+      setSaveFlowPending(false);
+    }
+  };
+
+  const handleConfirmReplacement = async () => {
+    if (replacementDialogMode !== "confirm" || !pendingSaveMode || saveFlowPending) return;
+
+    setSaveFlowPending(true);
+    try {
+      await persistDevis(pendingSaveMode === "draft", replacementQuotes);
+      resetReplacementDialog();
+    } catch (error) {
+      toast.error((error as Error).message || "Erreur lors du remplacement des anciens devis.");
+    } finally {
+      setSaveFlowPending(false);
+    }
+  };
+
+  const saving = saveFlowPending || createDevis.isPending || updateDevis.isPending;
+  const replacementActionLabel = pendingSaveMode === "draft"
+    ? "Créer le devis et annuler les précédents"
+    : "Envoyer le devis et annuler les précédents";
+  const blockingQuotes = replacementQuotes.filter((quote) => {
+    return quote.status === "signé" || quote.status === "accepted";
+  });
 
   if (isEdit && loadingExisting) return <AppLayout><div className="space-y-4 max-w-5xl"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div></AppLayout>;
 
@@ -489,6 +708,36 @@ export default function DevisForm() {
                   : "Créez un nouveau devis"}
           </p>
         </div>
+
+        <Card className="overflow-hidden border-border/60 shadow-card">
+          <CardContent className="space-y-4 p-4 md:p-6">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Feuille A4</p>
+                <h2 className="text-lg font-display font-semibold text-foreground">Devis à remplir directement</h2>
+                <p className="max-w-3xl text-sm text-muted-foreground">
+                  Le devis retrouve sa feuille A4 éditable. Les dates, le client, les lignes et les notes se remplissent ici.
+                  Les remises, prestataires et pièces jointes restent disponibles dans les réglages détaillés.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 self-start rounded-xl"
+                onClick={() => setShowDetailedEditor((value) => !value)}
+              >
+                {showDetailedEditor ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showDetailedEditor ? "Masquer les réglages détaillés" : "Afficher les réglages détaillés"}
+              </Button>
+            </div>
+
+            <div className="overflow-x-auto rounded-[28px] border border-border/60 bg-[#ece4d8] p-3 md:p-5">
+              <div className="min-w-[595px]">
+                <A4DocumentPreview data={a4Document} />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
@@ -587,8 +836,9 @@ export default function DevisForm() {
               </Card>
             )}
 
-            <Card className="shadow-card border-border/50">
-              <CardContent className="p-6 space-y-4">
+            {showDetailedEditor ? (
+              <Card className="shadow-card border-border/50">
+                <CardContent className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-display font-semibold">Lignes du devis</h3>
                   <div className="flex items-center gap-2">
@@ -736,7 +986,7 @@ export default function DevisForm() {
                               updateItem(item.id, "providerId", pId);
                               if (pId) {
 
-                                const provider = providers.find((m: any) => m.id === pId);
+                                const provider = assignableProviders.find((m) => m.user_id === pId);
                                 if (provider) {
                                   const rate = Number(provider.daily_rate) || Number(provider.hourly_rate) || 0;
                                   if (rate > 0) {
@@ -748,9 +998,9 @@ export default function DevisForm() {
                             }}
                             className="bg-transparent border-none text-xs font-medium text-muted-foreground focus:ring-0 cursor-pointer hover:text-primary transition-colors pr-8"
                           >
-                            <option value="">Aucun prestataire de l'équipe</option>
-                            {providers.map((m: any) => (
-                              <option key={m.id} value={m.id}>
+                            <option value="">Aucun prestataire assignable dans l'équipe</option>
+                            {assignableProviders.map((m) => (
+                              <option key={m.id} value={m.user_id}>
                                 {m.name}
                               </option>
                             ))}
@@ -805,12 +1055,14 @@ export default function DevisForm() {
                     </Popover>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : null}
 
-            <Card className="shadow-card border-border/50 overflow-hidden">
-              <div className="grid grid-cols-1 md:grid-cols-[1fr_350px] divide-x divide-border/40">
-                <CardContent className="p-6 space-y-4">
+            {showDetailedEditor ? (
+              <Card className="shadow-card border-border/50 overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_350px] divide-x divide-border/40">
+                  <CardContent className="p-6 space-y-4">
                   <div className="flex items-center gap-2 border-b pb-3 mb-4">
                     <FileText className="h-4 w-4 text-primary" />
                     <h3 className="font-display font-semibold">Notes & conditions</h3>
@@ -821,9 +1073,9 @@ export default function DevisForm() {
                     placeholder="Précisez ici vos conditions de règlement, délais ou notes spécifiques..."
                     className="min-h-[180px] rounded-2xl border-none bg-muted/20 focus-visible:ring-1 resize-none text-sm p-4"
                   />
-                </CardContent>
+                  </CardContent>
 
-                <CardContent className="p-6 bg-muted/5">
+                  <CardContent className="p-6 bg-muted/5">
                   <div className="flex items-center justify-between gap-2 border-b pb-3 mb-4">
                     <div className="flex items-center gap-2">
                       <Paperclip className="h-4 w-4 text-primary" />
@@ -907,9 +1159,10 @@ export default function DevisForm() {
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </div>
-            </Card>
+                  </CardContent>
+                </div>
+              </Card>
+            ) : null}
           </div>
 
           <div className="space-y-4">
@@ -1039,6 +1292,74 @@ export default function DevisForm() {
           </div>
         </div>
       </div>
+      <AlertDialog
+        open={replacementDialogOpen}
+        onOpenChange={(open) => {
+          if (!open && !saveFlowPending) {
+            resetReplacementDialog();
+          }
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {replacementDialogMode === "blocked"
+                ? "Un devis signé est déjà lié à cette mission"
+                : "Ce nouveau devis remplacera les précédents"}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">
+                {replacementDialogMode === "blocked"
+                  ? `La mission ${selectedMission?.title ? `« ${selectedMission.title} » ` : ""}possède déjà un devis signé. Il doit être traité manuellement avant de créer un nouveau devis.`
+                  : `La mission ${selectedMission?.title ? `« ${selectedMission.title} » ` : ""}a déjà des devis liés. Continuer annulera les devis ci-dessous.`}
+              </span>
+              <span className="block rounded-xl border border-border/60 bg-muted/30 p-3">
+                <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  Devis concernés
+                </span>
+                <span className="block space-y-2">
+                  {replacementQuotes.map((quote) => (
+                    <span key={quote.id} className="flex items-center justify-between gap-3 text-sm text-foreground">
+                      <span className="font-medium">{quote.number}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {getMissionReplacementStatusLabel(quote.status)}
+                      </span>
+                    </span>
+                  ))}
+                </span>
+              </span>
+              {replacementDialogMode === "blocked" && blockingQuotes.length > 0 ? (
+                <span className="block text-xs text-muted-foreground">
+                  Le devis {blockingQuotes.length > 1 ? "signé(s)" : "signé"} ne peut pas être annulé automatiquement.
+                </span>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            {replacementDialogMode === "confirm" ? (
+              <>
+                <AlertDialogCancel className="rounded-xl" disabled={saveFlowPending}>
+                  Annuler
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className="rounded-xl"
+                  disabled={saveFlowPending}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void handleConfirmReplacement();
+                  }}
+                >
+                  {saveFlowPending ? "Traitement..." : replacementActionLabel}
+                </AlertDialogAction>
+              </>
+            ) : (
+              <AlertDialogCancel className="rounded-xl" disabled={saveFlowPending}>
+                Fermer
+              </AlertDialogCancel>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout >
   );
 }

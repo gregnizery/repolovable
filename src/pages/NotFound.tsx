@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Home, ArrowLeft } from "lucide-react";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 const NotFound = () => {
   const location = useLocation();
@@ -25,7 +26,7 @@ const NotFound = () => {
           <Button variant="outline" onClick={() => navigate(-1)} className="gap-2 rounded-xl">
             <ArrowLeft className="h-4 w-4" /> Retour
           </Button>
-          <Button onClick={() => navigate("/dashboard")} className="gradient-primary text-white gap-2 rounded-xl hover:opacity-90">
+          <Button onClick={() => navigate(buildRelativeAppPath("/dashboard"))} className="gradient-primary text-white gap-2 rounded-xl hover:opacity-90">
             <Home className="h-4 w-4" /> Dashboard
           </Button>
         </div>

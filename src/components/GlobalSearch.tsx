@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,22 +6,26 @@ import { useAuth } from "@/hooks/use-auth";
 import { Search, X, FileText, Receipt, Users, Calendar, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserRole, canAccess, canEdit } from "@/hooks/use-user-role";
-
-interface SearchResult {
-  id: string;
-  label: string;
-  sublabel?: string;
-  href: string;
-  group: "Clients" | "Missions" | "Devis" | "Factures";
-  status?: string;
-}
+import type { Tables } from "@/integrations/supabase/types";
+import type { SearchResultRow } from "@/lib/view-models";
 
 interface GlobalSearchProps {
   open: boolean;
   onClose: () => void;
 }
 
-const GROUP_ICONS: Record<string, React.ReactNode> = {
+type ClientSearchRow = Pick<Tables<"clients">, "id" | "name" | "company" | "email">;
+type MissionSearchRow = Pick<Tables<"missions">, "id" | "title" | "status"> & {
+  clients: { name: string | null } | null;
+};
+type DevisSearchRow = Pick<Tables<"devis">, "id" | "number" | "status" | "total_ttc"> & {
+  clients: { name: string | null } | null;
+};
+type FactureSearchRow = Pick<Tables<"factures">, "id" | "number" | "status" | "total_ttc"> & {
+  clients: { name: string | null } | null;
+};
+
+const GROUP_ICONS: Record<string, ReactNode> = {
   Clients: <Users className="h-3.5 w-3.5" />,
   Missions: <Calendar className="h-3.5 w-3.5" />,
   Devis: <FileText className="h-3.5 w-3.5" />,
@@ -61,7 +65,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     }
   }, [open]);
 
-  const { data: results = [], isFetching } = useQuery<SearchResult[]>({
+  const { data: results = [], isFetching } = useQuery<SearchResultRow[]>({
     queryKey: ["global-search", query, user?.id],
     queryFn: async () => {
       if (!query.trim() || query.length < 2) return [];
@@ -76,22 +80,23 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
         : Promise.resolve({ data: [] });
 
       const fetchDevis = canAccess(role, "finance")
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any).from("devis").select("id, number, status, total_ttc, clients(name)").or(`number.ilike.%${q}%`).limit(5)
+        ? supabase.from("devis").select("id, number, status, total_ttc, clients(name)").or(`number.ilike.%${q}%`).limit(5)
         : Promise.resolve({ data: [] });
 
       const fetchFactures = canAccess(role, "finance")
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (supabase as any).from("factures").select("id, number, status, total_ttc, clients(name)").or(`number.ilike.%${q}%`).limit(5)
+        ? supabase.from("factures").select("id, number, status, total_ttc, clients(name)").or(`number.ilike.%${q}%`).limit(5)
         : Promise.resolve({ data: [] });
 
-      const [{ data: clients }, { data: missions }, { data: devis }, { data: factures }] =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (await Promise.all([fetchClients, fetchMissions, fetchDevis, fetchFactures])) as any[];
+      const [{ data: clientsData }, { data: missionsData }, { data: devisData }, { data: facturesData }] =
+        await Promise.all([fetchClients, fetchMissions, fetchDevis, fetchFactures]);
 
-      const out: SearchResult[] = [];
+      const clients = (clientsData ?? []) as ClientSearchRow[];
+      const missions = (missionsData ?? []) as MissionSearchRow[];
+      const devis = (devisData ?? []) as DevisSearchRow[];
+      const factures = (facturesData ?? []) as FactureSearchRow[];
+      const out: SearchResultRow[] = [];
 
-      for (const client of clients ?? []) {
+      for (const client of clients) {
         out.push({
           id: client.id,
           group: "Clients",
@@ -100,8 +105,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           href: `/clients/${client.id}`,
         });
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const mission of (missions as any) ?? []) {
+      for (const mission of missions) {
         out.push({
           id: mission.id,
           group: "Missions",
@@ -111,8 +115,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           status: mission.status,
         });
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const devisItem of (devis as any) ?? []) {
+      for (const devisItem of devis) {
         out.push({
           id: devisItem.id,
           group: "Devis",
@@ -124,8 +127,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           status: devisItem.status,
         });
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (const facture of (factures as any) ?? []) {
+      for (const facture of factures) {
         out.push({
           id: facture.id,
           group: "Factures",
@@ -144,7 +146,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     staleTime: 0,
   });
 
-  const grouped = results.reduce<Record<string, SearchResult[]>>((acc, result) => {
+  const grouped = results.reduce<Record<string, SearchResultRow[]>>((acc, result) => {
     if (!acc[result.group]) acc[result.group] = [];
     acc[result.group].push(result);
     return acc;
@@ -199,10 +201,10 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 animate-in fade-in-0 bg-slate-950/28 backdrop-blur-sm duration-150" onClick={onClose} />
+      <div className="fixed inset-0 z-50 animate-in fade-in-0 bg-slate-950/52 duration-150" onClick={onClose} />
 
       <div className="fixed left-1/2 top-24 z-50 w-[min(720px,calc(100vw-2rem))] -translate-x-1/2 animate-in fade-in-0 zoom-in-95 duration-150">
-        <div className="overflow-hidden rounded-[32px] border border-border/80 bg-card/98 shadow-[0_30px_80px_-34px_rgba(21,19,50,0.34)] backdrop-blur-2xl">
+        <div className="overflow-hidden rounded-[32px] border border-border bg-card shadow-[0_30px_80px_-34px_rgba(21,19,50,0.34)]">
           <div className="border-b border-border px-5 py-4">
             <div className="flex items-center gap-3">
               {isFetching ? (
@@ -216,7 +218,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Rechercher clients, missions, devis, factures..."
-                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                className="flex-1 rounded-md bg-background px-2 py-1 text-sm text-foreground outline-none placeholder:text-muted-foreground"
               />
               {query && (
                 <button onClick={() => setQuery("")} className="text-muted-foreground transition-colors hover:text-foreground">
@@ -244,7 +246,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                         navigate(item.href);
                         onClose();
                       }}
-                      className="flex w-full items-center gap-3 rounded-[20px] border border-border/80 bg-card/90 px-4 py-3 text-left text-sm transition-colors hover:border-primary/20 hover:bg-muted/60"
+                      className="flex w-full items-center gap-3 rounded-[20px] border border-border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-primary/20 hover:bg-muted/60"
                     >
                       <span className="rounded-[14px] bg-primary/10 p-2 text-primary">{item.icon}</span>
                       {item.label}

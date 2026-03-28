@@ -3,6 +3,13 @@ import { corsHeaders, errorResponse } from "../_shared/error-handler.ts";
 
 const enc = new TextEncoder();
 const b64url = (input: string) => btoa(input).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+const ADMIN_ROLES = new Set(["admin", "manager", "superadmin"]);
+
+type TeamMembership = {
+  team_id: string;
+  role: string;
+  created_at: string;
+};
 
 async function signHs256(payload: Record<string, unknown>, secret: string) {
   const header = { alg: "HS256", typ: "JWT" };
@@ -26,6 +33,26 @@ async function signHs256(payload: Record<string, unknown>, secret: string) {
   return `${data}.${signature}`;
 }
 
+function resolvePortalTeamId(clientTeamId: string | null, memberships: TeamMembership[]) {
+  const elevatedMemberships = memberships.filter((membership) => ADMIN_ROLES.has(membership.role));
+
+  if (elevatedMemberships.length === 0) {
+    return { teamId: null, authorized: false };
+  }
+
+  if (clientTeamId) {
+    return {
+      teamId: clientTeamId,
+      authorized: elevatedMemberships.some((membership) => membership.team_id === clientTeamId),
+    };
+  }
+
+  return {
+    teamId: elevatedMemberships[0].team_id,
+    authorized: true,
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -35,9 +62,23 @@ Deno.serve(async (req) => {
       return errorResponse("Unauthorized", 401);
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const secret = Deno.env.get("CLIENT_PORTAL_JWT_SECRET");
+
+    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+      throw new Error("Supabase environment variables are missing");
+    }
+
+    if (!secret) {
+      throw new Error("CLIENT_PORTAL_JWT_SECRET manquant");
+    }
+
+    const supabase = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
+    const admin = createClient(supabaseUrl, serviceRoleKey);
 
     const {
       data: { user },
@@ -52,23 +93,54 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: "clientId requis" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { data: clientData, error: clientError } = await supabase
-      .from("clients")
-      .select("id, team_id")
-      .eq("id", clientId)
-      .maybeSingle();
+    const [{ data: clientData, error: clientError }, { data: memberships, error: membershipError }] = await Promise.all([
+      supabase
+        .from("clients")
+        .select("id, team_id")
+        .eq("id", clientId)
+        .maybeSingle(),
+      supabase
+        .from("team_members")
+        .select("team_id, role, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: true }),
+    ]);
+
+    if (membershipError) {
+      throw new Error("Membership query error: " + JSON.stringify(membershipError));
+    }
 
     if (clientError || !clientData) {
       return new Response(JSON.stringify({ error: "Client introuvable" }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    const { teamId, authorized } = resolvePortalTeamId(
+      clientData.team_id,
+      (memberships ?? []) as TeamMembership[],
+    );
+
+    if (!authorized || !teamId) {
+      return new Response(JSON.stringify({ error: "Vous n'avez pas les droits pour generer ce lien portail" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!clientData.team_id) {
+      console.warn("Client without team_id for portal session, falling back to membership team", {
+        clientId,
+        teamId,
+        userId: user.id,
+      });
+    }
+
     const expiresAt = new Date(Date.now() + Number(expiresInHours) * 3600000).toISOString();
 
-    const { data: session, error: sessionError } = await supabase
+    const { data: session, error: sessionError } = await admin
       .from("client_portal_sessions")
       .insert({
         client_id: clientId,
-        team_id: clientData.team_id,
+        team_id: teamId,
         created_by: user.id,
         expires_at: expiresAt,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,15 +148,14 @@ Deno.serve(async (req) => {
       .select("id, expires_at")
       .single();
 
-    if (sessionError) throw sessionError;
-
-    const secret = Deno.env.get("CLIENT_PORTAL_JWT_SECRET");
-    if (!secret) throw new Error("CLIENT_PORTAL_JWT_SECRET manquant");
+    if (sessionError) {
+      throw new Error("Portal session creation error: " + JSON.stringify(sessionError));
+    }
 
     const payload = {
       sid: session.id,
       client_id: clientId,
-      team_id: clientData.team_id,
+      team_id: teamId,
       exp: Math.floor(new Date(session.expires_at).getTime() / 1000),
       iat: Math.floor(Date.now() / 1000),
     };

@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, CheckCircle2, XCircle, Users, Shield, ArrowRight, LogOut, Mail, UserPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 interface InvitationData {
   email: string;
@@ -69,7 +70,7 @@ export default function AcceptInvitation() {
       if (result?.success) {
         setAccepted(true);
         const targetPath = result.role === "prestataire" ? "/onboarding/prestataire" : "/dashboard";
-        setTimeout(() => navigate(targetPath), 2000);
+        setTimeout(() => navigate(buildRelativeAppPath(targetPath)), 2000);
       }
     } catch (err: unknown) {
       toast({
@@ -82,7 +83,7 @@ export default function AcceptInvitation() {
 
   const handleLogoutAndSwitch = async () => {
     await signOut();
-    navigate(`/register?token=${token}&email=${invitation?.email}`);
+    navigate(buildRelativeAppPath("/register", { searchParams: { token, email: invitation?.email } }));
   };
 
   if (authLoading || fetchingInv) {
@@ -112,7 +113,7 @@ export default function AcceptInvitation() {
               </p>
             </div>
             <Button
-              onClick={() => navigate("/login")}
+              onClick={() => navigate(buildRelativeAppPath("/login"))}
               className="w-full h-12 gradient-primary text-white rounded-xl shadow-lg shadow-primary/20"
             >
               Retourner à l'accueil
@@ -216,13 +217,13 @@ export default function AcceptInvitation() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Button
                     variant="outline"
-                    onClick={() => navigate(`/login?token=${token}`)}
+                    onClick={() => navigate(buildRelativeAppPath("/login", { searchParams: { token } }))}
                     className="h-14 font-semibold rounded-2xl transition-all text-base"
                   >
                     Se connecter
                   </Button>
                   <Button
-                    onClick={() => navigate(`/register?token=${token}`)}
+                    onClick={() => navigate(buildRelativeAppPath("/register", { searchParams: { token } }))}
                     className="h-14 gradient-primary text-white font-semibold rounded-2xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all text-base gap-2 group"
                   >
                     <UserPlus className="w-5 h-5" />

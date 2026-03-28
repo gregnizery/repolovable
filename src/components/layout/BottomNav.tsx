@@ -1,50 +1,52 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import { LayoutDashboard, Users, Calendar, FileText, Package } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useUserRole, canAccess } from "@/hooks/use-user-role";
+import { shellQuickAccess } from "@/components/layout/navigation";
+import { cn } from "@/lib/utils";
 
-const allBottomNavItems = [
-  { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard, section: "dashboard" },
-  { title: "Clients", path: "/clients", icon: Users, section: "clients" },
-  { title: "Missions", path: "/missions", icon: Calendar, section: "missions" },
-  { title: "Calendrier", path: "/calendrier", icon: Calendar, section: "missions" },
-  { title: "Finance", path: "/finance/devis", icon: FileText, section: "finance" },
-  { title: "Matériel", path: "/materiel", icon: Package, section: "materiel" },
-];
+interface BottomNavProps {
+  onMenuOpen: () => void;
+}
 
-export function BottomNav() {
+export function BottomNav({ onMenuOpen }: BottomNavProps) {
   const location = useLocation();
   const { data: roleData } = useUserRole();
   const role = roleData?.role;
-
-  const bottomNavItems = allBottomNavItems.filter((item) => canAccess(role, item.section));
+  const items = shellQuickAccess.filter((item) => canAccess(role, item.section));
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-3 pt-2 safe-area-bottom md:hidden">
-      <div className="flex h-16 items-center justify-around rounded-[26px] border border-border/80 bg-card/95 px-1 shadow-card backdrop-blur-xl">
-        {bottomNavItems.map((item) => {
-          const isActive =
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-background/96 px-3 pb-3 pt-2 shadow-[0_-10px_30px_-24px_rgba(20,20,18,0.28)] backdrop-blur md:hidden">
+      <div className="grid grid-cols-5 gap-2">
+        {items.map((item) => {
+          const active =
             location.pathname === item.path ||
+            location.pathname.startsWith(`${item.path}/`) ||
             (item.path === "/finance/devis" && location.pathname.startsWith("/finance"));
+
           return (
             <NavLink
               key={item.path}
               to={item.path}
               className={cn(
-                "relative flex min-w-[56px] flex-col items-center gap-1 rounded-[18px] px-2 py-1.5 transition-colors",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground"
+                "flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl border text-[11px] font-medium transition-colors",
+                active
+                  ? "border-primary/25 bg-primary/10 text-foreground"
+                  : "border-transparent text-muted-foreground hover:border-border hover:bg-card",
               )}
             >
-              <item.icon className={cn("h-5 w-5", isActive && "drop-shadow-sm")} />
-              <span className="text-[10px] font-medium leading-none">{item.title}</span>
-              {isActive && (
-                <div className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-b-full bg-primary" />
-              )}
+              <item.icon className={cn("h-4 w-4", active && "text-primary")} />
+              <span>{item.title}</span>
             </NavLink>
           );
         })}
+        <button
+          type="button"
+          onClick={onMenuOpen}
+          className="flex min-h-[60px] flex-col items-center justify-center gap-1 rounded-xl border border-transparent text-[11px] font-medium text-muted-foreground transition-colors hover:border-border hover:bg-card"
+        >
+          <Menu className="h-4 w-4" />
+          <span>Menu</span>
+        </button>
       </div>
     </nav>
   );

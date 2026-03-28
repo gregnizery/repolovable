@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.16";
+import { buildPublicAppUrl } from "../_shared/public-app-url.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,8 +76,21 @@ Deno.serve(async (req: Request) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: team } = await adminClient
-      .from("teams").select("id, name, owner_id").eq("id", team_id).single();
+    let teamQuery = await adminClient
+      .from("teams")
+      .select("id, name, owner_id, workspace_slug")
+      .eq("id", team_id)
+      .single();
+
+    if (teamQuery.error && teamQuery.error.message.includes("workspace_slug")) {
+      teamQuery = await adminClient
+        .from("teams")
+        .select("id, name, owner_id")
+        .eq("id", team_id)
+        .single();
+    }
+
+    const team = teamQuery.data as { id: string; name: string; owner_id: string; workspace_slug?: string | null } | null;
 
 
     if (!team) {
@@ -158,10 +172,10 @@ Deno.serve(async (req: Request) => {
     const companyName = profile?.company_name || "Planify";
     const senderName = profile?.company_name ? `${profile.company_name} via Planify` : "Planify";
 
-    // Build accept URL
-    // Forcer l'URL de production pour la fiabilité des liens dans les emails
-    const appUrl = "https://planify-5a976.web.app";
-    const acceptUrl = `${appUrl}/invitation?token=${encodeURIComponent(invitation.token)}`;
+    const acceptUrl = buildPublicAppUrl(req, "/invitation", {
+      workspaceIdentifier: team.workspace_slug ?? team.id,
+      searchParams: { token: invitation.token },
+    });
 
     const roleLabels: Record<string, string> = {
       admin: "Administrateur",

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { toast } from "sonner";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export interface TeamMember {
   id: string;
@@ -17,27 +18,14 @@ export interface TeamMember {
 }
 
 export function useTeam() {
-  const { user } = useAuth();
+  const { activeMembership, refreshKey, status } = useWorkspace();
 
   return useQuery({
-    queryKey: ["team", user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data: membership, error: memErr } = await supabase
-        .from("team_members")
-        .select("team_id, role, teams(id, name, owner_id, plan, auto_reminder_enabled)")
-        .eq("user_id", user.id)
-        .limit(1)
-        .maybeSingle();
-
-      console.log("useTeam membership result:", membership, "for user:", user.id);
-      if (memErr) {
-        console.error("useTeam error:", memErr);
-        throw memErr;
-      }
-      return membership;
-    },
-    enabled: !!user,
+    queryKey: ["team", refreshKey],
+    queryFn: async () => activeMembership,
+    enabled: status === "resolved",
+    initialData: activeMembership,
+    staleTime: 60 * 1000,
   });
 }
 

@@ -16,6 +16,10 @@ supabase/.env
 .antigravity/
 .gemini/
 brain/
+.agents/
+.claude/
+.kiro/
+skills-lock.json
 
 # Temporary / Diagnostic scripts
 _*.mjs

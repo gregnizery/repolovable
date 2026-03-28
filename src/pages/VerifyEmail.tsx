@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Mail, Rocket, ArrowLeft, Loader2, ShieldCheck, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 export default function VerifyEmail() {
     const navigate = useNavigate();
@@ -21,7 +22,7 @@ export default function VerifyEmail() {
 
     useEffect(() => {
         if (!email) {
-            navigate("/login");
+            navigate(buildRelativeAppPath("/login"));
         }
     }, [email, navigate]);
 
@@ -100,10 +101,11 @@ export default function VerifyEmail() {
             sessionStorage.removeItem("planify_redirect_log");
 
             setShowSuccess(true);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Le code saisi est incorrect ou a expiré.";
             toast({
                 title: "Erreur de vérification",
-                description: error.message || "Le code saisi est incorrect ou a expiré.",
+                description: message,
                 variant: "destructive",
             });
         } finally {
@@ -127,10 +129,11 @@ export default function VerifyEmail() {
                 description: "Un nouveau code de vérification a été envoyé à votre adresse.",
             });
             setTimer(60); // 60 seconds cooldown
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Impossible de renvoyer le code.";
             toast({
                 title: "Erreur",
-                description: error.message,
+                description: message,
                 variant: "destructive",
             });
         } finally {
@@ -237,7 +240,7 @@ export default function VerifyEmail() {
                             <div className="pt-4 mt-4 border-t border-border/70">
                                 <Button
                                     variant="link"
-                                    onClick={() => navigate("/login")}
+                                    onClick={() => navigate(buildRelativeAppPath("/login"))}
                                     className="text-muted-foreground text-xs hover:text-foreground gap-2 no-underline"
                                 >
                                     <ArrowLeft className="h-3 w-3" />
@@ -267,7 +270,7 @@ export default function VerifyEmail() {
                             </div>
 
                             <Button
-                                onClick={() => navigate("/dashboard", { replace: true })}
+                                onClick={() => navigate(buildRelativeAppPath("/dashboard"), { replace: true })}
                                 className="w-full h-12 gradient-primary text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all"
                             >
                                 Accéder au tableau de bord

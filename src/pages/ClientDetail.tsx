@@ -11,6 +11,8 @@ import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUserRole, canEdit } from "@/hooks/use-user-role";
+import { useWorkspace } from "@/hooks/use-workspace";
+import { buildPublicAppUrl } from "@/lib/public-app-url";
 
 export default function ClientDetail() {
   const { id } = useParams();
@@ -20,6 +22,7 @@ export default function ClientDetail() {
   const { data: allDevis = [] } = useDevisList();
   const { data: allFactures = [] } = useFactures();
   const { data: roleData } = useUserRole();
+  const { activeWorkspaceIdentifier } = useWorkspace();
   const canEditClient = canEdit(roleData?.role, "clients");
   useRealtimeSync("clients", [["client", id!]]);
   useRealtimeSync("missions", [["missions"]]);
@@ -36,7 +39,10 @@ export default function ClientDetail() {
       body: { clientId: id, expiresInHours: 168 },
     });
     if (error) return toast.error(error.message);
-    const url = `${window.location.origin}/public/client-portal?token=${data.token}`;
+    const url = buildPublicAppUrl("/public/client-portal", {
+      workspaceIdentifier: activeWorkspaceIdentifier,
+      searchParams: { token: data.token },
+    });
     await navigator.clipboard.writeText(url);
     toast.success("Lien portail client copié");
   };

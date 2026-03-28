@@ -1,80 +1,13 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import {
-  LayoutDashboard,
-  Users,
-  Calendar,
-  FileText,
-  Package,
-  Settings,
-  ChevronLeft,
-  ChevronRight,
-  Receipt,
-  CreditCard,
-  X,
-  MapPin,
-  ShieldAlert,
-  QrCode,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useUserRole, canAccess } from "@/hooks/use-user-role";
 import { useCurrentProvider } from "@/hooks/use-data";
-
-const navGroups = [
-  {
-    label: "Pilotage",
-    section: null,
-    items: [
-      { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard, section: "dashboard" },
-      { title: "Calendrier", path: "/calendrier", icon: Calendar, section: "missions" },
-    ],
-  },
-  {
-    label: "Relation",
-    section: null,
-    items: [
-      { title: "Clients", path: "/clients", icon: Users, section: "clients" },
-      { title: "Prestataires", path: "/prestataires", icon: Users, section: "parametres" },
-    ],
-  },
-  {
-    label: "Opérations",
-    section: null,
-    items: [
-      { title: "Missions", path: "/missions", icon: Calendar, section: "missions" },
-    ],
-  },
-  {
-    label: "Finance",
-    section: "finance",
-    items: [
-      { title: "Devis", path: "/finance/devis", icon: FileText, section: "finance" },
-      { title: "Factures", path: "/finance/factures", icon: Receipt, section: "finance" },
-      { title: "Paiements", path: "/finance/paiements", icon: CreditCard, section: "finance" },
-    ],
-  },
-  {
-    label: "Parc",
-    section: null,
-    items: [
-      { title: "Matériel", path: "/materiel", icon: Package, section: "materiel" },
-      { title: "Scanner QR", path: "/materiel/scan", icon: QrCode, section: "materiel" },
-      { title: "Lieux de stockage", path: "/materiel/stockage", icon: MapPin, section: "materiel" },
-      { title: "Réseau B2B", path: "/suppliers", icon: Users, section: "materiel" },
-    ],
-  },
-  {
-    label: "Administration",
-    section: "parametres",
-    items: [
-      { title: "Paramètres", path: "/parametres", icon: Settings, section: "parametres" },
-      { title: "SuperAdmin", path: "/superadmin", icon: ShieldAlert, section: "superadmin" },
-    ],
-  },
-];
+import { navGroups, type NavigationItem } from "@/components/layout/navigation";
+import { cn } from "@/lib/utils";
 
 const roleLabels: Record<string, string> = {
-  admin: "Admin",
+  admin: "Administrateur",
   manager: "Manager",
   technicien: "Technicien",
   prestataire: "Prestataire",
@@ -85,120 +18,122 @@ interface AppSidebarProps {
   onMobileClose: () => void;
 }
 
+function isItemActive(pathname: string, path: string) {
+  return pathname === path || pathname.startsWith(`${path}/`) || (path !== "/dashboard" && pathname.startsWith(path));
+}
+
+function SidebarLink({
+  item,
+  collapsed,
+  pathname,
+  onClick,
+}: {
+  item: NavigationItem;
+  collapsed: boolean;
+  pathname: string;
+  onClick?: () => void;
+}) {
+  const active = isItemActive(pathname, item.path);
+
+  return (
+    <NavLink
+      to={item.path}
+      onClick={onClick}
+      className={cn(
+        "flex items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors",
+        active
+          ? "border-primary/25 bg-primary/10 text-foreground"
+          : "border-transparent text-sidebar-foreground hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+      )}
+    >
+      <item.icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-sidebar-foreground")} />
+      {!collapsed ? <span className="truncate">{item.title}</span> : null}
+    </NavLink>
+  );
+}
+
 export function AppSidebar({ mobileOpen, onMobileClose }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const { data: roleData } = useUserRole();
   const { data: currentProvider } = useCurrentProvider();
   const role = roleData?.role;
-  const roleLabel = role ? roleLabels[role] ?? role : "Workspace";
-  const contextLabel = currentProvider?.name || (role === "prestataire" ? "Profil prestataire" : "Organisation active");
+  const roleLabel = role ? roleLabels[role] ?? role : "Espace";
+  const contextLabel = currentProvider?.name || (role === "prestataire" ? "Profil prestataire" : "Equipe active");
 
   const filteredGroups = navGroups
     .map((group) => {
-      let items = group.items.filter((item) => canAccess(role, item.section));
-
-      if (group.label === "Relation" && role === "prestataire" && currentProvider) {
-        items = [
-          ...items,
-          { title: "Mon Profil", path: `/prestataires/${currentProvider.id}`, icon: Users, section: null },
-        ];
-      }
-
+      const items = group.items.filter((item) => canAccess(role, item.section));
       return { ...group, items };
     })
     .filter((group) => group.items.length > 0);
 
-  const isItemActive = (path: string) =>
-    location.pathname === path ||
-    location.pathname.startsWith(`${path}/`) ||
-    (path !== "/dashboard" && location.pathname.startsWith(path));
-
-  const navContent = (onNavClick?: () => void) => (
+  const navContent = (onLinkClick?: () => void) => (
     <>
-      <div className="flex h-20 items-center border-b border-sidebar-border/80 px-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] gradient-primary text-lg font-bold text-white shadow-glow">
+      <div className="flex h-[72px] items-center border-b border-sidebar-border px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-glow">
             P
           </div>
-          {!collapsed && (
-            <div className="space-y-0.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/55">
-                Halo workspace
-              </p>
-              <span className="font-display text-xl font-semibold tracking-tight text-sidebar-accent-foreground">
-                Planify
-              </span>
+          {!collapsed ? (
+            <div className="min-w-0">
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-sidebar-muted">Atelier</p>
+              <p className="truncate text-lg font-semibold text-sidebar-accent-foreground">Planify</p>
             </div>
-          )}
+          ) : null}
         </div>
-        {onNavClick && (
+        {onLinkClick ? (
           <button
-            onClick={onNavClick}
-            className="ml-auto rounded-full border border-sidebar-border bg-sidebar-accent p-2 text-sidebar-foreground/70 transition-colors hover:text-sidebar-accent-foreground"
+            onClick={onLinkClick}
+            className="ml-auto rounded-lg border border-sidebar-border bg-sidebar-accent p-2 text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
-        )}
+        ) : null}
       </div>
 
-      <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5">
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
         {filteredGroups.map((group) => (
-          <div key={group.label}>
-            {!collapsed && (
-              <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-[0.22em] text-sidebar-foreground/45">
-                {group.label}
-              </p>
-            )}
-            <ul className="space-y-1">
-              {group.items.map((item) => {
-                const isActive = isItemActive(item.path);
-                return (
-                  <li key={item.path}>
-                    <NavLink
-                      to={item.path}
-                      onClick={onNavClick}
-                      className={cn(
-                        "flex items-center gap-3 rounded-[20px] px-3 py-2.5 text-sm font-medium transition-all duration-200",
-                        isActive
-                          ? "border border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                          : "border border-transparent text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                      )}
-                    >
-                      <item.icon className={cn("h-[18px] w-[18px] shrink-0", isActive && "text-primary")} />
-                      {!collapsed && <span>{item.title}</span>}
-                    </NavLink>
-                  </li>
-                );
-              })}
-            </ul>
+          <div key={group.label} className="space-y-2">
+            {!collapsed ? (
+              <p className="px-2 font-mono text-[11px] uppercase tracking-[0.18em] text-sidebar-muted">{group.label}</p>
+            ) : null}
+            <div className="space-y-1">
+              {group.items.map((item) => (
+                <SidebarLink
+                  key={item.path}
+                  item={item}
+                  collapsed={collapsed}
+                  pathname={location.pathname}
+                  onClick={onLinkClick}
+                />
+              ))}
+            </div>
           </div>
         ))}
       </nav>
 
-      <div className="px-3 pb-3">
-        <div
-          className={cn(
-            "rounded-[24px] border border-sidebar-border bg-sidebar-primary/70 p-3 shadow-sm",
-            collapsed && "flex justify-center px-2",
-          )}
-        >
+      <div className="space-y-3 border-t border-sidebar-border px-3 py-3">
+        <div className={cn("rounded-xl border border-sidebar-border bg-sidebar-accent px-3 py-3", collapsed && "px-2")}>
           {collapsed ? (
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 font-mono text-[11px] uppercase text-primary">
               {roleLabel.slice(0, 1)}
             </div>
           ) : (
-            <div className="space-y-1.5">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sidebar-foreground/55">
-                {roleLabel}
-              </p>
-              <p className="text-sm font-medium text-sidebar-accent-foreground">{contextLabel}</p>
-              <p className="text-xs text-sidebar-foreground">
-                Recherche, alertes et actions rapides restent accessibles partout.
-              </p>
+            <div className="space-y-1">
+              <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-sidebar-muted">{roleLabel}</p>
+              <p className="truncate text-sm font-medium text-sidebar-accent-foreground">{contextLabel}</p>
             </div>
           )}
         </div>
+        {!onLinkClick ? (
+          <button
+            onClick={() => setCollapsed((value) => !value)}
+            className="flex h-10 w-full items-center justify-center rounded-lg border border-sidebar-border bg-sidebar-accent text-sidebar-foreground transition-colors hover:text-sidebar-accent-foreground"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
+        ) : null}
       </div>
     </>
   );
@@ -207,29 +142,18 @@ export function AppSidebar({ mobileOpen, onMobileClose }: AppSidebarProps) {
     <>
       <aside
         className={cn(
-          "sticky top-0 z-30 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar/90 text-sidebar-foreground shadow-[12px_0_30px_-28px_rgba(21,19,50,0.2)] backdrop-blur-2xl transition-all duration-300 md:flex",
-          collapsed ? "w-[78px]" : "w-[272px]",
+          "sticky top-0 z-30 hidden h-screen flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[10px_0_30px_-24px_rgba(22,22,19,0.22)] md:flex",
+          collapsed ? "w-[84px]" : "w-[270px]",
         )}
       >
         {navContent()}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="mx-3 mb-3 flex h-11 items-center justify-center rounded-full border border-sidebar-border bg-sidebar-accent text-sidebar-foreground/70 transition-colors hover:text-sidebar-accent-foreground"
-        >
-          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        </button>
       </aside>
 
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 animate-fade-in bg-slate-950/35 backdrop-blur-sm md:hidden"
-          onClick={onMobileClose}
-        />
-      )}
+      {mobileOpen ? <div className="fixed inset-0 z-40 bg-slate-950/35 md:hidden" onClick={onMobileClose} /> : null}
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[288px] flex-col border-r border-sidebar-border bg-sidebar/95 text-sidebar-foreground shadow-xl transition-transform duration-300 md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-[320px] flex-col border-r border-sidebar-border bg-sidebar text-sidebar-foreground shadow-xl transition-transform duration-200 md:hidden",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >

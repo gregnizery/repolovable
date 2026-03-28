@@ -17,8 +17,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useInvoiceItemTemplates } from "@/hooks/use-invoice-templates";
-import { useTeamMembers } from "@/hooks/use-team";
-import { useAuth } from "@/hooks/use-auth";
+import { useTeam, useTeamMembers } from "@/hooks/use-team";
+import { getAssignableProviders, normalizeAssignedProviderId } from "@/lib/provider-assignment";
 
 interface LineItem {
   id: string;
@@ -60,25 +60,27 @@ export default function FactureForm() {
   }, [existing]);
 
   const { data: templates = [] } = useInvoiceItemTemplates();
-  const { user } = useAuth();
-  const teamId = user ? undefined : undefined;
 
   const { data: teamMembership } = useTeam();
   const { data: teamMembers = [] } = useTeamMembers(teamMembership?.team_id);
 
   const { data: providers = [] } = useProviders();
+  const assignableProviders = useMemo(() => getAssignableProviders(providers), [providers]);
   const { data: whiteLabel } = useQuery({
-    queryKey: ["white-label-settings"],
+    queryKey: ["white-label-settings", teamMembership?.team_id],
     queryFn: async () => {
+      if (!teamMembership?.team_id) return {};
 
       const { data, error } = await (supabase as any)
         .from("white_label_settings")
         .select("is_tva_subject, tva_rates")
+        .eq("team_id", teamMembership.team_id)
         .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data || {};
     },
+    enabled: !!teamMembership?.team_id,
   });
 
   const [clientId, setClientId] = useState("");
@@ -123,7 +125,7 @@ export default function FactureForm() {
 
           discountType: (item.discount_type as any) || "percent",
 
-          providerId: (item as any).provider_id || null,
+          providerId: normalizeAssignedProviderId((item as any).provider_id || null, providers),
         })));
       }
     } else if (sourceDevis) {
@@ -148,7 +150,7 @@ export default function FactureForm() {
           discountAmount: Number(item.discount_amount) || 0,
 
           discountType: (item.discount_type as any) || "percent",
-          providerId: item.provider_id || null,
+          providerId: normalizeAssignedProviderId(item.provider_id || null, providers),
         })));
       }
     } else if (sourceFacture) {
@@ -172,7 +174,7 @@ export default function FactureForm() {
 
           discountType: (item.discount_type as any) || "percent",
 
-          providerId: (item as any).provider_id || null,
+          providerId: normalizeAssignedProviderId((item as any).provider_id || null, providers),
         })));
       }
     } else if (whiteLabel) {
@@ -183,7 +185,7 @@ export default function FactureForm() {
         setTvaRate(Number(whiteLabel.tva_rates[whiteLabel.tva_rates.length - 1]) / 100);
       }
     }
-  }, [existing, sourceDevis, sourceFacture, whiteLabel]);
+  }, [existing, sourceDevis, sourceFacture, whiteLabel, providers]);
 
   useEffect(() => {
     setItems(prev => {
@@ -230,7 +232,7 @@ export default function FactureForm() {
           discountType: "percent" as const,
           baseHourlyRate: hourlyRate,
           materielName: name,
-          providerId: matchedProvider ? matchedProvider.id : null,
+          providerId: matchedProvider?.user_id || null,
         };
       })
       .filter(Boolean) as LineItem[];
@@ -551,7 +553,7 @@ export default function FactureForm() {
                               updateItem(item.id, "providerId", pId);
                               if (pId) {
 
-                                const provider = providers.find((m: any) => m.id === pId);
+                                const provider = assignableProviders.find((m) => m.user_id === pId);
                                 if (provider) {
                                   const rate = Number(provider.daily_rate) || Number(provider.hourly_rate) || 0;
                                   if (rate > 0) {
@@ -563,9 +565,9 @@ export default function FactureForm() {
                             }}
                             className="bg-transparent border-none text-xs font-medium text-muted-foreground focus:ring-0 cursor-pointer hover:text-primary transition-colors pr-8 disabled:cursor-not-allowed"
                           >
-                            <option value="">Aucun prestataire de l'équipe</option>
-                            {providers.map((m: any) => (
-                              <option key={m.id} value={m.id}>
+                            <option value="">Aucun prestataire assignable dans l'équipe</option>
+                            {assignableProviders.map((m) => (
+                              <option key={m.id} value={m.user_id}>
                                 {m.name}
                               </option>
                             ))}

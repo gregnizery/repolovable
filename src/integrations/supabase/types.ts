@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       b2b_invitations: {
@@ -47,16 +22,14 @@ export type Database = {
           inviting_team_id: string
           status: string
           token: string
-          updated_at: string
         }
         Insert: {
           created_at?: string
-          expires_at: string
+          expires_at?: string
           id?: string
           inviting_team_id: string
           status?: string
           token: string
-          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -65,12 +38,65 @@ export type Database = {
           inviting_team_id?: string
           status?: string
           token?: string
-          updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "b2b_invitations_inviting_team_id_fkey"
             columns: ["inviting_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_transactions: {
+        Row: {
+          amount: number
+          bank_name: string | null
+          created_at: string
+          id: string
+          label: string
+          reconciled_paiement_id: string | null
+          reference: string | null
+          status: string
+          team_id: string | null
+          transaction_date: string
+        }
+        Insert: {
+          amount: number
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          label: string
+          reconciled_paiement_id?: string | null
+          reference?: string | null
+          status?: string
+          team_id?: string | null
+          transaction_date: string
+        }
+        Update: {
+          amount?: number
+          bank_name?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          reconciled_paiement_id?: string | null
+          reference?: string | null
+          status?: string
+          team_id?: string | null
+          transaction_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_transactions_reconciled_paiement_id_fkey"
+            columns: ["reconciled_paiement_id"]
+            isOneToOne: false
+            referencedRelation: "paiements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_transactions_team_id_fkey"
+            columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
@@ -86,7 +112,7 @@ export type Database = {
           id: string
           last_access_at: string | null
           revoked_at: string | null
-          team_id: string
+          team_id: string | null
         }
         Insert: {
           client_id: string
@@ -96,7 +122,7 @@ export type Database = {
           id?: string
           last_access_at?: string | null
           revoked_at?: string | null
-          team_id: string
+          team_id?: string | null
         }
         Update: {
           client_id?: string
@@ -106,7 +132,7 @@ export type Database = {
           id?: string
           last_access_at?: string | null
           revoked_at?: string | null
-          team_id?: string
+          team_id?: string | null
         }
         Relationships: [
           {
@@ -180,16 +206,7 @@ export type Database = {
           client_id: string | null
           created_at: string
           date: string
-          discount_amount: number
-          discount_type: string
           id: string
-          margin_amount: number
-          margin_cost_equipment_depreciation: number
-          margin_cost_labor: number
-          margin_cost_logistics: number
-          margin_rate: number
-          margin_snapshot: Json | null
-          margin_total_cost: number
           mission_id: string | null
           notes: string | null
           number: string
@@ -210,13 +227,6 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
-          margin_amount?: number
-          margin_cost_equipment_depreciation?: number
-          margin_cost_labor?: number
-          margin_cost_logistics?: number
-          margin_rate?: number
-          margin_snapshot?: Json | null
-          margin_total_cost?: number
           mission_id?: string | null
           notes?: string | null
           number: string
@@ -237,13 +247,6 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
-          margin_amount?: number
-          margin_cost_equipment_depreciation?: number
-          margin_cost_labor?: number
-          margin_cost_logistics?: number
-          margin_rate?: number
-          margin_snapshot?: Json | null
-          margin_total_cost?: number
           mission_id?: string | null
           notes?: string | null
           number?: string
@@ -283,93 +286,33 @@ export type Database = {
           },
         ]
       }
-      devis_attachments: {
-        Row: {
-          created_at: string
-          devis_id: string
-          file_name: string
-          file_url: string
-          file_type: string | null
-          id: string
-          size: number | null
-          team_id: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          devis_id: string
-          file_name: string
-          file_url: string
-          file_type?: string | null
-          id?: string
-          size?: number | null
-          team_id?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          devis_id?: string
-          file_name?: string
-          file_url?: string
-          file_type?: string | null
-          id?: string
-          size?: number | null
-          team_id?: string | null
-          user_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "devis_attachments_devis_id_fkey"
-            columns: ["devis_id"]
-            isOneToOne: false
-            referencedRelation: "devis"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "devis_attachments_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       devis_items: {
         Row: {
           created_at: string
           description: string
           devis_id: string
-          discount_amount: number
-          discount_type: string
           id: string
           quantity: number
           sort_order: number
           unit_price: number
-          provider_id: string | null
         }
         Insert: {
           created_at?: string
           description: string
           devis_id: string
-          discount_amount?: number
-          discount_type?: string
           id?: string
           quantity?: number
           sort_order?: number
           unit_price?: number
-          provider_id?: string | null
         }
         Update: {
           created_at?: string
           description?: string
           devis_id?: string
-          discount_amount?: number
-          discount_type?: string
           id?: string
           quantity?: number
           sort_order?: number
           unit_price?: number
-          provider_id?: string | null
         }
         Relationships: [
           {
@@ -381,42 +324,154 @@ export type Database = {
           },
         ]
       }
+      equipment_checkouts: {
+        Row: {
+          checked_at: string
+          checked_by: string | null
+          condition: string | null
+          created_at: string
+          id: string
+          materiel_id: string | null
+          mission_id: string | null
+          notes: string | null
+          quantity: number
+          team_id: string | null
+          type: string
+        }
+        Insert: {
+          checked_at?: string
+          checked_by?: string | null
+          condition?: string | null
+          created_at?: string
+          id?: string
+          materiel_id?: string | null
+          mission_id?: string | null
+          notes?: string | null
+          quantity?: number
+          team_id?: string | null
+          type: string
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string | null
+          condition?: string | null
+          created_at?: string
+          id?: string
+          materiel_id?: string | null
+          mission_id?: string | null
+          notes?: string | null
+          quantity?: number
+          team_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_checkouts_materiel_id_fkey"
+            columns: ["materiel_id"]
+            isOneToOne: false
+            referencedRelation: "materiel"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_checkouts_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_checkouts_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      expenses: {
+        Row: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          expense_date: string
+          id: string
+          notes: string | null
+          receipt_url: string | null
+          supplier_id: string | null
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          receipt_url?: string | null
+          supplier_id?: string | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          created_at?: string
+          description?: string
+          expense_date?: string
+          id?: string
+          notes?: string | null
+          receipt_url?: string | null
+          supplier_id?: string | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facture_items: {
         Row: {
           created_at: string
           description: string
-          discount_amount: number
-          discount_type: string
           facture_id: string
           id: string
           quantity: number
           sort_order: number
           unit_price: number
-          provider_id: string | null
         }
         Insert: {
           created_at?: string
           description: string
-          discount_amount?: number
-          discount_type?: string
           facture_id: string
           id?: string
           quantity?: number
           sort_order?: number
           unit_price?: number
-          provider_id?: string | null
         }
         Update: {
           created_at?: string
           description?: string
-          discount_amount?: number
-          discount_type?: string
           facture_id?: string
           id?: string
           quantity?: number
           sort_order?: number
           unit_price?: number
-          provider_id?: string | null
         }
         Relationships: [
           {
@@ -434,12 +489,8 @@ export type Database = {
           created_at: string
           date: string
           devis_id: string | null
-          discount_amount: number
-          discount_type: string
           due_date: string | null
           id: string
-          margin_real_amount: number | null
-          margin_snapshot: Json | null
           mission_id: string | null
           notes: string | null
           number: string
@@ -450,20 +501,14 @@ export type Database = {
           tva_rate: number
           updated_at: string
           user_id: string
-          type: string
-          parent_facture_id: string | null
         }
         Insert: {
           client_id?: string | null
           created_at?: string
           date?: string
           devis_id?: string | null
-          discount_amount?: number
-          discount_type?: string
           due_date?: string | null
           id?: string
-          margin_real_amount?: number | null
-          margin_snapshot?: Json | null
           mission_id?: string | null
           notes?: string | null
           number: string
@@ -474,20 +519,14 @@ export type Database = {
           tva_rate?: number
           updated_at?: string
           user_id: string
-          type?: string
-          parent_facture_id?: string | null
         }
         Update: {
           client_id?: string | null
           created_at?: string
           date?: string
           devis_id?: string | null
-          discount_amount?: number
-          discount_type?: string
           due_date?: string | null
           id?: string
-          margin_real_amount?: number | null
-          margin_snapshot?: Json | null
           mission_id?: string | null
           notes?: string | null
           number?: string
@@ -498,8 +537,6 @@ export type Database = {
           tva_rate?: number
           updated_at?: string
           user_id?: string
-          type?: string
-          parent_facture_id?: string | null
         }
         Relationships: [
           {
@@ -540,7 +577,7 @@ export type Database = {
           id: string
           name: string
           team_id: string | null
-          type: Database["public"]["Enums"]["template_type"]
+          type: string
           updated_at: string
         }
         Insert: {
@@ -550,7 +587,7 @@ export type Database = {
           id?: string
           name: string
           team_id?: string | null
-          type?: Database["public"]["Enums"]["template_type"]
+          type?: string
           updated_at?: string
         }
         Update: {
@@ -560,12 +597,59 @@ export type Database = {
           id?: string
           name?: string
           team_id?: string | null
-          type?: Database["public"]["Enums"]["template_type"]
+          type?: string
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "invoice_item_templates_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logistics_config: {
+        Row: {
+          auto_checkout: boolean
+          auto_packing_list: boolean
+          auto_transport: boolean
+          created_at: string
+          delivery_hours_before: number
+          event_type: string
+          id: string
+          pickup_hours_after: number
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          auto_checkout?: boolean
+          auto_packing_list?: boolean
+          auto_transport?: boolean
+          created_at?: string
+          delivery_hours_before?: number
+          event_type: string
+          id?: string
+          pickup_hours_after?: number
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auto_checkout?: boolean
+          auto_packing_list?: boolean
+          auto_transport?: boolean
+          created_at?: string
+          delivery_hours_before?: number
+          event_type?: string
+          id?: string
+          pickup_hours_after?: number
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logistics_config_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
@@ -581,7 +665,6 @@ export type Database = {
           description: string | null
           id: string
           is_b2b_shared: boolean | null
-          is_subrented: boolean | null
           location: string | null
           name: string
           notes: string | null
@@ -590,11 +673,7 @@ export type Database = {
           rental_price: number | null
           serial_number: string | null
           status: string
-          storage_location_id: string | null
-          subrent_cost: number | null
-          supplier_id: string | null
           team_id: string | null
-          tracking_type: string
           updated_at: string
           user_id: string
         }
@@ -605,7 +684,6 @@ export type Database = {
           description?: string | null
           id?: string
           is_b2b_shared?: boolean | null
-          is_subrented?: boolean | null
           location?: string | null
           name: string
           notes?: string | null
@@ -614,11 +692,7 @@ export type Database = {
           rental_price?: number | null
           serial_number?: string | null
           status?: string
-          storage_location_id?: string | null
-          subrent_cost?: number | null
-          supplier_id?: string | null
           team_id?: string | null
-          tracking_type?: string
           updated_at?: string
           user_id: string
         }
@@ -629,7 +703,6 @@ export type Database = {
           description?: string | null
           id?: string
           is_b2b_shared?: boolean | null
-          is_subrented?: boolean | null
           location?: string | null
           name?: string
           notes?: string | null
@@ -638,29 +711,11 @@ export type Database = {
           rental_price?: number | null
           serial_number?: string | null
           status?: string
-          storage_location_id?: string | null
-          subrent_cost?: number | null
-          supplier_id?: string | null
           team_id?: string | null
-          tracking_type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "materiel_storage_location_id_fkey"
-            columns: ["storage_location_id"]
-            isOneToOne: false
-            referencedRelation: "storage_locations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "materiel_supplier_id_fkey"
-            columns: ["supplier_id"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "materiel_team_id_fkey"
             columns: ["team_id"]
@@ -790,12 +845,10 @@ export type Database = {
           created_at: string
           id: string
           message: string
-          metadata: Json
+          metadata: Json | null
           read_at: string | null
-          scheduled_for: string | null
-          sent_at: string | null
           status: string
-          team_id: string
+          team_id: string | null
           title: string
           type: string
           user_id: string
@@ -805,12 +858,10 @@ export type Database = {
           created_at?: string
           id?: string
           message: string
-          metadata?: Json
+          metadata?: Json | null
           read_at?: string | null
-          scheduled_for?: string | null
-          sent_at?: string | null
           status?: string
-          team_id: string
+          team_id?: string | null
           title: string
           type?: string
           user_id: string
@@ -820,12 +871,10 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string
-          metadata?: Json
+          metadata?: Json | null
           read_at?: string | null
-          scheduled_for?: string | null
-          sent_at?: string | null
           status?: string
-          team_id?: string
+          team_id?: string | null
           title?: string
           type?: string
           user_id?: string
@@ -840,60 +889,9 @@ export type Database = {
           },
         ]
       }
-      notification_reminders: {
-        Row: {
-          channel: string
-          created_at: string
-          created_by: string
-          id: string
-          payload: Json
-          recipient_email: string | null
-          remind_at: string
-          status: string
-          target_id: string
-          target_type: string
-          team_id: string
-        }
-        Insert: {
-          channel?: string
-          created_at?: string
-          created_by: string
-          id?: string
-          payload?: Json
-          recipient_email?: string | null
-          remind_at: string
-          status?: string
-          target_id: string
-          target_type: string
-          team_id: string
-        }
-        Update: {
-          channel?: string
-          created_at?: string
-          created_by?: string
-          id?: string
-          payload?: Json
-          recipient_email?: string | null
-          remind_at?: string
-          status?: string
-          target_id?: string
-          target_type?: string
-          team_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "notification_reminders_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       paiements: {
         Row: {
           amount: number
-          cash_justification: string | null
           created_at: string
           facture_id: string | null
           id: string
@@ -903,14 +901,9 @@ export type Database = {
           reference: string | null
           team_id: string | null
           user_id: string
-          validated_at: string | null
-          validated_by: string | null
-          validated_comment: string | null
-          validation_status: string
         }
         Insert: {
           amount: number
-          cash_justification?: string | null
           created_at?: string
           facture_id?: string | null
           id?: string
@@ -920,14 +913,9 @@ export type Database = {
           reference?: string | null
           team_id?: string | null
           user_id: string
-          validated_at?: string | null
-          validated_by?: string | null
-          validated_comment?: string | null
-          validation_status?: string
         }
         Update: {
           amount?: number
-          cash_justification?: string | null
           created_at?: string
           facture_id?: string | null
           id?: string
@@ -937,10 +925,6 @@ export type Database = {
           reference?: string | null
           team_id?: string | null
           user_id?: string
-          validated_at?: string | null
-          validated_by?: string | null
-          validated_comment?: string | null
-          validation_status?: string
         }
         Relationships: [
           {
@@ -961,43 +945,37 @@ export type Database = {
       }
       payment_proofs: {
         Row: {
-          amount_declared: number | null
           created_at: string
-          facture_id: string
-          file_name: string
+          facture_id: string | null
+          file_name: string | null
           file_url: string
           id: string
-          mime_type: string | null
-          note: string | null
-          payment_date: string | null
-          team_id: string
-          uploaded_by_client_id: string | null
+          notes: string | null
+          status: string
+          team_id: string | null
+          uploaded_by: string | null
         }
         Insert: {
-          amount_declared?: number | null
           created_at?: string
-          facture_id: string
-          file_name: string
+          facture_id?: string | null
+          file_name?: string | null
           file_url: string
           id?: string
-          mime_type?: string | null
-          note?: string | null
-          payment_date?: string | null
-          team_id: string
-          uploaded_by_client_id?: string | null
+          notes?: string | null
+          status?: string
+          team_id?: string | null
+          uploaded_by?: string | null
         }
         Update: {
-          amount_declared?: number | null
           created_at?: string
-          facture_id?: string
-          file_name?: string
+          facture_id?: string | null
+          file_name?: string | null
           file_url?: string
           id?: string
-          mime_type?: string | null
-          note?: string | null
-          payment_date?: string | null
-          team_id?: string
-          uploaded_by_client_id?: string | null
+          notes?: string | null
+          status?: string
+          team_id?: string | null
+          uploaded_by?: string | null
         }
         Relationships: [
           {
@@ -1009,58 +987,6 @@ export type Database = {
           },
           {
             foreignKeyName: "payment_proofs_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_proofs_uploaded_by_client_id_fkey"
-            columns: ["uploaded_by_client_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      payment_reminders_log: {
-        Row: {
-          facture_id: string
-          id: string
-          recipient_email: string
-          reminder_type: string
-          sent_at: string | null
-          status: string | null
-          team_id: string
-        }
-        Insert: {
-          facture_id: string
-          id?: string
-          recipient_email: string
-          reminder_type: string
-          sent_at?: string | null
-          status?: string | null
-          team_id: string
-        }
-        Update: {
-          facture_id?: string
-          id?: string
-          recipient_email?: string
-          reminder_type?: string
-          sent_at?: string | null
-          status?: string | null
-          team_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "payment_reminders_log_facture_id_fkey"
-            columns: ["facture_id"]
-            isOneToOne: false
-            referencedRelation: "factures"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payment_reminders_log_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
@@ -1084,9 +1010,6 @@ export type Database = {
           siret: string | null
           updated_at: string
           user_id: string
-          daily_rate: number | null
-          hourly_rate: number | null
-          is_superadmin: boolean | null
         }
         Insert: {
           address?: string | null
@@ -1103,9 +1026,6 @@ export type Database = {
           siret?: string | null
           updated_at?: string
           user_id: string
-          daily_rate?: number | null
-          hourly_rate?: number | null
-          is_superadmin?: boolean | null
         }
         Update: {
           address?: string | null
@@ -1122,11 +1042,82 @@ export type Database = {
           siret?: string | null
           updated_at?: string
           user_id?: string
-          daily_rate?: number | null
-          hourly_rate?: number | null
-          is_superadmin?: boolean | null
         }
         Relationships: []
+      }
+      providers: {
+        Row: {
+          bio: string | null
+          contact_info: Json | null
+          created_at: string
+          daily_rate: number | null
+          hourly_rate: number | null
+          id: string
+          id_document_url: string | null
+          insurance_document_url: string | null
+          insurance_expiry: string | null
+          legal_info: Json | null
+          name: string
+          notes: string | null
+          photo_url: string | null
+          rib_document_url: string | null
+          specialties: string[] | null
+          team_id: string | null
+          updated_at: string
+          urssaf_document_url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          bio?: string | null
+          contact_info?: Json | null
+          created_at?: string
+          daily_rate?: number | null
+          hourly_rate?: number | null
+          id?: string
+          id_document_url?: string | null
+          insurance_document_url?: string | null
+          insurance_expiry?: string | null
+          legal_info?: Json | null
+          name: string
+          notes?: string | null
+          photo_url?: string | null
+          rib_document_url?: string | null
+          specialties?: string[] | null
+          team_id?: string | null
+          updated_at?: string
+          urssaf_document_url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          bio?: string | null
+          contact_info?: Json | null
+          created_at?: string
+          daily_rate?: number | null
+          hourly_rate?: number | null
+          id?: string
+          id_document_url?: string | null
+          insurance_document_url?: string | null
+          insurance_expiry?: string | null
+          legal_info?: Json | null
+          name?: string
+          notes?: string | null
+          photo_url?: string | null
+          rib_document_url?: string | null
+          specialties?: string[] | null
+          team_id?: string | null
+          updated_at?: string
+          urssaf_document_url?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "providers_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       stock_movements: {
         Row: {
@@ -1189,7 +1180,8 @@ export type Database = {
           id: string
           name: string
           notes: string | null
-          team_id: string
+          team_id: string | null
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -1198,7 +1190,8 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
-          team_id: string
+          team_id?: string | null
+          updated_at?: string
           user_id: string
         }
         Update: {
@@ -1207,7 +1200,8 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
-          team_id?: string
+          team_id?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: [
@@ -1230,7 +1224,7 @@ export type Database = {
           mission_id: string | null
           notes: string | null
           provider_team_id: string
-          quantity: number | null
+          quantity: number
           requester_team_id: string
           start_date: string
           status: string
@@ -1245,7 +1239,7 @@ export type Database = {
           mission_id?: string | null
           notes?: string | null
           provider_team_id: string
-          quantity?: number | null
+          quantity?: number
           requester_team_id: string
           start_date: string
           status?: string
@@ -1260,7 +1254,7 @@ export type Database = {
           mission_id?: string | null
           notes?: string | null
           provider_team_id?: string
-          quantity?: number | null
+          quantity?: number
           requester_team_id?: string
           start_date?: string
           status?: string
@@ -1297,54 +1291,105 @@ export type Database = {
           },
         ]
       }
-      providers: {
+      supplier_invoice_items: {
         Row: {
-          id: string
-          user_id: string | null
-          team_id: string
-          name: string
-          hourly_rate: number | null
-          daily_rate: number | null
-          specialties: string[] | null
-          legal_info: Json | null
-          contact_info: Json | null
           created_at: string
+          description: string
+          id: string
+          quantity: number
+          sort_order: number
+          supplier_invoice_id: string
+          unit_price: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          quantity?: number
+          sort_order?: number
+          supplier_invoice_id: string
+          unit_price?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          quantity?: number
+          sort_order?: number
+          supplier_invoice_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supplier_invoice_items_supplier_invoice_id_fkey"
+            columns: ["supplier_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "supplier_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supplier_invoices: {
+        Row: {
+          created_at: string
+          date: string
+          due_date: string | null
+          id: string
+          notes: string | null
+          number: string
+          status: string
+          supplier_id: string | null
+          team_id: string | null
+          total_ht: number
+          total_ttc: number
+          tva_rate: number
           updated_at: string
         }
         Insert: {
-          id?: string
-          user_id?: string | null
-          team_id: string
-          name: string
-          hourly_rate?: number | null
-          daily_rate?: number | null
-          specialties?: string[] | null
-          legal_info?: Json | null
-          contact_info?: Json | null
           created_at?: string
+          date?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          number: string
+          status?: string
+          supplier_id?: string | null
+          team_id?: string | null
+          total_ht?: number
+          total_ttc?: number
+          tva_rate?: number
           updated_at?: string
         }
         Update: {
-          id?: string
-          user_id?: string | null
-          team_id?: string
-          name?: string
-          hourly_rate?: number | null
-          daily_rate?: number | null
-          specialties?: string[] | null
-          legal_info?: Json | null
-          contact_info?: Json | null
           created_at?: string
+          date?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          number?: string
+          status?: string
+          supplier_id?: string | null
+          team_id?: string | null
+          total_ht?: number
+          total_ttc?: number
+          tva_rate?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "providers_team_id_fkey"
+            foreignKeyName: "supplier_invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supplier_invoices_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
-          }
+          },
         ]
       }
       suppliers: {
@@ -1358,7 +1403,7 @@ export type Database = {
           name: string
           notes: string | null
           phone: string | null
-          team_id: string
+          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1371,7 +1416,7 @@ export type Database = {
           name: string
           notes?: string | null
           phone?: string | null
-          team_id: string
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1384,7 +1429,7 @@ export type Database = {
           name?: string
           notes?: string | null
           phone?: string | null
-          team_id?: string
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1451,9 +1496,6 @@ export type Database = {
       team_members: {
         Row: {
           created_at: string
-          display_first_name: string | null
-          display_last_name: string | null
-          email: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           team_id: string
@@ -1461,9 +1503,6 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          display_first_name?: string | null
-          display_last_name?: string | null
-          email?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           team_id: string
@@ -1471,9 +1510,6 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          display_first_name?: string | null
-          display_last_name?: string | null
-          email?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           team_id?: string
@@ -1487,13 +1523,6 @@ export type Database = {
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "team_members_user_id_fkey_profiles"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
         ]
       }
       teams: {
@@ -1503,8 +1532,9 @@ export type Database = {
           id: string
           name: string
           owner_id: string
-          plan: Database["public"]["Enums"]["subscription_plan"]
+          plan: Database["public"]["Enums"]["subscription_plan"] | null
           updated_at: string
+          workspace_slug: string
         }
         Insert: {
           auto_reminder_enabled?: boolean | null
@@ -1512,8 +1542,9 @@ export type Database = {
           id?: string
           name: string
           owner_id: string
-          plan?: Database["public"]["Enums"]["subscription_plan"]
+          plan?: Database["public"]["Enums"]["subscription_plan"] | null
           updated_at?: string
+          workspace_slug?: string
         }
         Update: {
           auto_reminder_enabled?: boolean | null
@@ -1521,83 +1552,187 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string
-          plan?: Database["public"]["Enums"]["subscription_plan"]
+          plan?: Database["public"]["Enums"]["subscription_plan"] | null
           updated_at?: string
+          workspace_slug?: string
         }
         Relationships: []
       }
-      white_label_settings: {
+      transport_plans: {
         Row: {
-          company_address: string | null
-          company_lat: number | null
-          company_lng: number | null
+          address: string | null
           created_at: string
+          driver_name: string | null
           id: string
-          legal_mentions: string | null
-          logo_url: string | null
-          price_per_km: number | null
-          primary_color: string
-          secondary_color: string
-          support_email: string | null
-          support_phone: string | null
-          team_id: string
+          mission_id: string | null
+          notes: string | null
+          scheduled_at: string | null
+          status: string
+          team_id: string | null
+          type: string
           updated_at: string
-          updated_by: string | null
-          is_tva_subject: boolean | null
-          tva_rates: Json | null
-          cgv_text: string | null
-          iban: string | null
-          bic: string | null
+          vehicle: string | null
+          vehicle_id: string | null
         }
         Insert: {
-          company_address?: string | null
-          company_lat?: number | null
-          company_lng?: number | null
+          address?: string | null
           created_at?: string
+          driver_name?: string | null
           id?: string
-          legal_mentions?: string | null
-          logo_url?: string | null
-          price_per_km?: number | null
-          primary_color?: string
-          secondary_color?: string
-          support_email?: string | null
-          support_phone?: string | null
-          team_id: string
+          mission_id?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: string
+          team_id?: string | null
+          type: string
           updated_at?: string
-          updated_by?: string | null
-          is_tva_subject?: boolean | null
-          tva_rates?: Json | null
-          cgv_text?: string | null
-          iban?: string | null
-          bic?: string | null
+          vehicle?: string | null
+          vehicle_id?: string | null
         }
         Update: {
-          company_address?: string | null
-          company_lat?: number | null
-          company_lng?: number | null
+          address?: string | null
           created_at?: string
+          driver_name?: string | null
           id?: string
-          legal_mentions?: string | null
-          logo_url?: string | null
-          price_per_km?: number | null
-          primary_color?: string
-          secondary_color?: string
-          support_email?: string | null
-          support_phone?: string | null
-          team_id?: string
+          mission_id?: string | null
+          notes?: string | null
+          scheduled_at?: string | null
+          status?: string
+          team_id?: string | null
+          type?: string
           updated_at?: string
-          updated_by?: string | null
-          is_tva_subject?: boolean | null
-          tva_rates?: Json | null
-          cgv_text?: string | null
-          iban?: string | null
-          bic?: string | null
+          vehicle?: string | null
+          vehicle_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "white_label_settings_team_id_fkey"
+            foreignKeyName: "transport_plans_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "missions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_plans_team_id_fkey"
             columns: ["team_id"]
-            isOneToOne: true
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transport_plans_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicle_costs: {
+        Row: {
+          amount: number
+          category: string
+          cost_date: string
+          created_at: string
+          description: string | null
+          id: string
+          notes: string | null
+          team_id: string | null
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          amount?: number
+          category?: string
+          cost_date?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          team_id?: string | null
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          amount?: number
+          category?: string
+          cost_date?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          notes?: string | null
+          team_id?: string | null
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_costs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_costs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          capacity: string | null
+          created_at: string
+          ct_expiry: string | null
+          id: string
+          insurance_expiry: string | null
+          mileage: number | null
+          name: string
+          notes: string | null
+          plate_number: string | null
+          status: string
+          team_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          capacity?: string | null
+          created_at?: string
+          ct_expiry?: string | null
+          id?: string
+          insurance_expiry?: string | null
+          mileage?: number | null
+          name: string
+          notes?: string | null
+          plate_number?: string | null
+          status?: string
+          team_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          capacity?: string | null
+          created_at?: string
+          ct_expiry?: string | null
+          id?: string
+          insurance_expiry?: string | null
+          mileage?: number | null
+          name?: string
+          notes?: string | null
+          plate_number?: string | null
+          status?: string
+          team_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicles_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -1619,11 +1754,8 @@ export type Database = {
           last_name: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
-          daily_rate: number
-          hourly_rate: number
         }[]
       }
-      get_team_user: { Args: { p_team_id: string }; Returns: string }
       get_user_team_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
@@ -1643,32 +1775,6 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
-      }
-      validate_cash_payment: {
-        Args: { p_comment?: string; p_payment_id: string; p_status: string }
-        Returns: {
-          amount: number
-          cash_justification: string | null
-          created_at: string
-          facture_id: string | null
-          id: string
-          method: string | null
-          notes: string | null
-          payment_date: string
-          reference: string | null
-          team_id: string | null
-          user_id: string
-          validated_at: string | null
-          validated_by: string | null
-          validated_comment: string | null
-          validation_status: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "paiements"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       verifier_disponibilite_materiel: {
         Args: {
@@ -1690,8 +1796,6 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "manager" | "technicien" | "prestataire"
-      subscription_plan: "free" | "pro" | "suite"
-      template_type: "gestion" | "technique" | "autre"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1705,125 +1809,121 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ["admin", "manager", "technicien", "prestataire"],
-      subscription_plan: ["free", "pro", "suite"],
     },
   },
 } as const

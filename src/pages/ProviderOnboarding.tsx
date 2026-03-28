@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserRole } from "@/hooks/use-user-role";
 import { useCreateProvider, getTeamId } from "@/hooks/use-data";
+import { useWorkspace } from "@/hooks/use-workspace";
 import {
     CheckCircle2,
     Rocket,
@@ -25,11 +26,13 @@ import {
     ArrowRight
 } from "lucide-react";
 import { toast } from "sonner";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 export default function ProviderOnboarding() {
     const { user, loading: authLoading } = useAuth();
     const navigate = useNavigate();
     const { data: roleData, isLoading: roleLoading } = useUserRole();
+    const { activeTeamId } = useWorkspace();
     const createProvider = useCreateProvider();
 
     const [step, setStep] = useState(1);
@@ -49,7 +52,7 @@ export default function ProviderOnboarding() {
         if (!authLoading && !roleLoading && roleData) {
             // If not a prestataire or already onboarded, go to dashboard
             if (roleData.role !== "prestataire" || roleData.isOnboarded) {
-                navigate("/dashboard");
+                navigate(buildRelativeAppPath("/dashboard"));
             }
         }
     }, [authLoading, roleLoading, roleData, navigate]);
@@ -64,7 +67,7 @@ export default function ProviderOnboarding() {
 
     const handleSubmit = async () => {
         if (!user) return;
-        const teamId = await getTeamId(user.id);
+        const teamId = await getTeamId(user.id, activeTeamId);
         if (!teamId) {
             toast.error("Équipe non trouvée. Veuillez contacter votre administrateur.");
             return;
@@ -88,7 +91,7 @@ export default function ProviderOnboarding() {
                 }
             });
             setStep(3); // Success step
-            setTimeout(() => navigate("/dashboard"), 3000);
+            setTimeout(() => navigate(buildRelativeAppPath("/dashboard")), 3000);
         } catch (error) {
             console.error(error);
         }

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getCalendarFeedUrl } from "@/lib/supabase-urls";
 import { toast } from "sonner";
 import { Calendar as CalendarIcon, Info, Copy, ExternalLink } from "lucide-react";
 
@@ -117,9 +118,7 @@ export default function Calendrier() {
         enabled: !!user,
     });
 
-    const calendarFeedUrl = (profile as any)?.calendar_token
-        ? `https://usixljyrqcaaapksjyff.functions.supabase.co/get-calendar-feed?token=${(profile as any).calendar_token}`
-        : null;
+    const calendarFeedUrl = getCalendarFeedUrl((profile as any)?.calendar_token);
 
     const [view, setView] = useState<View>(Views.MONTH);
     const [date, setDate] = useState(new Date());

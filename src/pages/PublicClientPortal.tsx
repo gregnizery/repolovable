@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import SignatureCanvas from "react-signature-canvas";
+import { getClientPortalErrorMessage } from "@/lib/client-portal-errors";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type LineItem = { id: string; description: string; quantity: number; unit_price: number; sort_order?: number; tva?: number };
@@ -122,6 +123,7 @@ export default function PublicClientPortal() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [data, setData] = useState<PortalPayload | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [selectedFactureId, setSelectedFactureId] = useState("");
 
@@ -137,7 +139,10 @@ export default function PublicClientPortal() {
       const { data: pdfData, error } = await supabase.functions.invoke("portal-generate-pdf", {
         body: { token, factureId: facture.id },
       });
-      if (error) { toast.error("Erreur lors de la génération du PDF"); return; }
+      if (error) {
+        toast.error(await getClientPortalErrorMessage(error as { message: string; context?: unknown }));
+        return;
+      }
       const blob = pdfData instanceof Blob ? pdfData : new Blob([pdfData], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -154,7 +159,10 @@ export default function PublicClientPortal() {
       const { data: pdfData, error } = await supabase.functions.invoke("portal-generate-pdf", {
         body: { token, devisId: devis.id, type: "devis" },
       });
-      if (error) { toast.error("Erreur lors de la génération du PDF"); return; }
+      if (error) {
+        toast.error(await getClientPortalErrorMessage(error as { message: string; context?: unknown }));
+        return;
+      }
       const blob = pdfData instanceof Blob ? pdfData : new Blob([pdfData], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -171,20 +179,37 @@ export default function PublicClientPortal() {
 
   const brandColor = data?.whiteLabel?.primary_color || "#5749f4";
 
-  const refresh = async () => {
-    if (!token) return;
+  const refresh = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!token) {
+      setLoadError("Lien portail incomplet.");
+      setData(null);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const { data: resp, error } = await supabase.functions.invoke("verify-client-portal-token", { body: { token } });
-    if (error) { toast.error(error.message); setLoading(false); return; }
+    if (error) {
+      const message = await getClientPortalErrorMessage(error as { message: string; context?: unknown });
+      if (!silent) toast.error(message);
+      setLoadError(message);
+      setData(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoadError(null);
     setData(resp as PortalPayload);
     setLoading(false);
-  };
+  }, [token]);
 
   useEffect(() => {
-    refresh();
-    const t = setInterval(refresh, 20000);
+    void refresh();
+    const t = setInterval(() => {
+      void refresh({ silent: true });
+    }, 20000);
     return () => clearInterval(t);
-  }, [token]);
+  }, [refresh]);
 
   const uploadProof = async () => {
     if (!file || !selectedFactureId) { toast.error("Choisissez une facture et un fichier"); return; }
@@ -194,10 +219,10 @@ export default function PublicClientPortal() {
       body: { token, factureId: selectedFactureId, fileName: file.name, mimeType: file.type, base64Content: b64 },
     });
     setUploading(false);
-    if (error) return toast.error(error.message);
+    if (error) return toast.error(await getClientPortalErrorMessage(error as { message: string; context?: unknown }));
     toast.success("Justificatif envoyé");
     setFile(null);
-    refresh();
+    void refresh({ silent: true });
   };
 
   const handleSignDevis = async () => {
@@ -213,14 +238,40 @@ export default function PublicClientPortal() {
       body: { token, devisId: selectedDevis.id, signatureBase64 },
     });
     setSigning(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(await getClientPortalErrorMessage(error as { message: string; context?: unknown }));
+      return;
+    }
     toast.success("Devis signé avec succès !");
     setSelectedDevis(null);
-    refresh();
+    void refresh({ silent: true });
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-background forced-light"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  if (!data) return <div className="min-h-screen flex items-center justify-center bg-background forced-light text-muted-foreground">Lien invalide ou expiré.</div>;
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-background forced-light px-4 py-8 md:px-6">
+        <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-xl items-center justify-center">
+          <Card className="w-full border-border/70 bg-card shadow-card">
+            <CardContent className="p-8 text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <h1 className="mt-4 text-xl font-semibold text-foreground">Acces au portail indisponible</h1>
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">{loadError}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Si besoin, demandez un nouveau lien portail a votre interlocuteur.
+              </p>
+              <Button className="mt-6" onClick={() => void refresh()}>
+                Reessayer
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+  if (!data) return <div className="min-h-screen flex items-center justify-center bg-background forced-light text-muted-foreground">Lien invalide ou expire.</div>;
 
   // Build paiements map per facture
   const paiementsMap: Record<string, typeof data.paiements> = {};

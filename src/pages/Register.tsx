@@ -47,6 +47,7 @@ function getRegistrationErrorCode(message: string): { code: string; label: strin
 import { motion, AnimatePresence } from "framer-motion";
 import { CompanyAutocomplete } from "@/components/CompanyAutocomplete";
 import { supabase } from "@/integrations/supabase/client";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -95,11 +96,11 @@ export default function Register() {
     // This prevents the "flash" that hides the VerifyEmail screen after signup
     if (user && !authLoading) {
       if (invitationToken) {
-        navigate(`/invitation?token=${invitationToken}`, { replace: true });
+        navigate(buildRelativeAppPath("/invitation", { searchParams: { token: invitationToken } }), { replace: true });
       } else if (redirectParam) {
         navigate(redirectParam, { replace: true });
       } else if (user.email_confirmed_at) {
-        navigate("/dashboard", { replace: true });
+        navigate(buildRelativeAppPath("/dashboard"), { replace: true });
       }
     }
   }, [user, authLoading, navigate, invitationToken, redirectParam]);
@@ -180,7 +181,7 @@ export default function Register() {
         setRegistrationError({ ...errInfo, raw: error.message || "Unknown error" });
       }
     } else {
-      navigate(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true });
+      navigate(buildRelativeAppPath("/verify-email", { searchParams: { email } }), { replace: true });
     }
   };
 
@@ -216,8 +217,8 @@ export default function Register() {
     };
 
     return (
-      <div className="min-h-screen flex bg-background forced-light text-foreground">
-        <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
+      <div className="auth-shell min-h-screen flex text-foreground">
+        <div className="auth-sidepanel hidden lg:flex lg:w-1/2 items-center justify-center p-12 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="absolute rounded-full bg-white/20" style={{
@@ -240,7 +241,7 @@ export default function Register() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="w-full max-w-sm text-center space-y-6"
+            className="auth-panel w-full max-w-sm rounded-[2rem] p-8 text-center space-y-6"
           >
             <div className="lg:hidden flex items-center justify-center gap-3 mb-4">
               <img src="/assets/logo.png" alt="Planify" className="w-10 h-10 object-contain" />
@@ -254,10 +255,11 @@ export default function Register() {
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-2xl font-display font-bold text-foreground tracking-tight">
+              <p className="auth-kicker">Diagnostic</p>
+              <h1 className="auth-heading text-3xl font-bold">
                 L'inscription a échoué
               </h1>
-              <p className="text-muted-foreground text-sm leading-relaxed">
+              <p className="auth-copy text-sm leading-7">
                 {registrationError.label}
               </p>
             </div>
@@ -281,7 +283,7 @@ export default function Register() {
             <div className="space-y-3 pt-2">
               <Button
                 onClick={() => { setRegistrationError(null); }}
-                className="w-full h-12 gradient-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl transition-all group"
+                className="w-full h-12 gradient-primary text-white font-bold rounded-xl transition-all group"
               >
                 <span className="flex items-center justify-center gap-2">
                   <RotateCcw className="h-4 w-4" />
@@ -290,8 +292,8 @@ export default function Register() {
               </Button>
               <Button
                 variant="ghost"
-                onClick={() => navigate('/login')}
-                className="w-full h-10 text-sm text-muted-foreground hover:text-foreground rounded-xl"
+                onClick={() => navigate(buildRelativeAppPath("/login"))}
+                className="w-full h-10 text-sm auth-copy hover:text-foreground rounded-xl"
               >
                 J'ai déjà un compte → Se connecter
               </Button>
@@ -304,8 +306,8 @@ export default function Register() {
 
   if (userExists) {
     return (
-      <div className="min-h-screen flex bg-background forced-light text-foreground">
-        <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
+      <div className="auth-shell min-h-screen flex text-foreground">
+        <div className="auth-sidepanel hidden lg:flex lg:w-1/2 items-center justify-center p-12 relative overflow-hidden">
           <div className="absolute inset-0 opacity-10">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="absolute rounded-full bg-white/20" style={{
@@ -328,7 +330,7 @@ export default function Register() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
-            className="w-full max-w-sm text-center space-y-8"
+            className="auth-panel w-full max-w-sm rounded-[2rem] p-8 text-center space-y-8"
           >
             <div className="lg:hidden flex items-center justify-center gap-3 mb-4">
               <img src="/assets/logo.png" alt="Planify" className="w-10 h-10 object-contain" />
@@ -355,23 +357,30 @@ export default function Register() {
             </div>
 
             <div className="space-y-3">
-              <h1 className="text-3xl font-display font-bold text-foreground tracking-tight">
+              <p className="auth-kicker">Compte existant</p>
+              <h1 className="auth-heading text-3xl font-bold">
                 On se connaît, non ?
               </h1>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="auth-copy leading-relaxed">
                 L'adresse <span className="font-semibold text-foreground">{email}</span> est déjà associée à un compte Planify.
               </p>
             </div>
 
-            <div className="bg-card p-5 rounded-2xl border border-border/60 space-y-1 shadow-card">
+            <div className="auth-card p-5 rounded-2xl space-y-1">
               <p className="text-sm text-foreground font-medium">Connectez-vous pour retrouver votre espace</p>
-              <p className="text-xs text-muted-foreground">Vos données vous attendent ✨</p>
+              <p className="auth-copy text-xs">Vos données vous attendent.</p>
             </div>
 
             <div className="space-y-3">
               <Button
-                onClick={() => navigate(`/login${invitationToken ? `?token=${invitationToken}` : ""}`)}
-                className="w-full h-12 gradient-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all group"
+                onClick={() =>
+                  navigate(
+                    buildRelativeAppPath("/login", {
+                      searchParams: invitationToken ? { token: invitationToken } : undefined,
+                    }),
+                  )
+                }
+                className="w-full h-12 gradient-primary text-white font-bold rounded-xl transition-all group"
               >
                 <span className="flex items-center justify-center gap-2">
                   Se connecter
@@ -381,7 +390,7 @@ export default function Register() {
               <Button
                 variant="ghost"
                 onClick={() => { setUserExists(false); setEmail(""); setPassword(""); }}
-                className="w-full h-10 text-sm text-muted-foreground hover:text-foreground rounded-xl"
+                className="w-full h-10 text-sm auth-copy hover:text-foreground rounded-xl"
               >
                 Utiliser une autre adresse email
               </Button>
@@ -393,8 +402,8 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background forced-light text-foreground">
-      <div className="hidden lg:flex lg:w-1/2 gradient-hero items-center justify-center p-12 relative overflow-hidden">
+    <div className="auth-shell min-h-screen flex text-foreground">
+      <div className="auth-sidepanel hidden lg:flex lg:w-1/2 items-center justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="absolute rounded-full bg-white/20" style={{
@@ -428,20 +437,21 @@ export default function Register() {
           {step < 5 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-2 text-center lg:text-left transition-all duration-500">
-                <h1 className="text-3xl font-display font-bold tracking-tight text-foreground transition-all">
+                <p className="auth-kicker">Inscription</p>
+                <h1 className="auth-heading text-3xl font-bold transition-all">
                   {step === 1 && "Commençons par faire connaissance"}
                   {step === 2 && "Parlez-nous de votre entreprise"}
                   {step === 3 && "Choisissez votre plan"}
                   {step === 4 && "Sécurisez votre compte"}
                 </h1>
-                <p className="text-muted-foreground">
+                <p className="auth-copy">
                   Étape {currentDisplayStep} sur {totalSteps}
                 </p>
               </div>
 
-              <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+              <div className="auth-progress-track w-full h-1.5 rounded-full overflow-hidden">
                 <motion.div
-                  className="h-full gradient-primary"
+                  className="auth-progress-bar h-full"
                   initial={{ width: 0 }}
                   animate={{ width: `${progress}%` }}
                   transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -455,23 +465,23 @@ export default function Register() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
-                  className="space-y-6"
+                  className="auth-panel space-y-6 rounded-[2rem] p-6"
                   onSubmit={handleSubmit}
                 >
                   {step === 1 && (
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label className="text-foreground/85 font-medium ml-1">Votre prénom</Label>
+                        <Label className="auth-label ml-1">Votre prénom</Label>
                         <div className="relative">
                           <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="Jean" value={firstName} onChange={e => setFirstName(e.target.value)} className="h-12 pl-12 rounded-xl transition-all font-medium" required />
+                          <Input placeholder="Jean" value={firstName} onChange={e => setFirstName(e.target.value)} className="auth-input h-12 pl-12 rounded-xl transition-all font-medium" required />
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-foreground/85 font-medium ml-1">Votre nom</Label>
+                        <Label className="auth-label ml-1">Votre nom</Label>
                         <div className="relative">
                           <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input placeholder="Dupont" value={lastName} onChange={e => setLastName(e.target.value)} className="h-12 pl-12 rounded-xl transition-all font-medium" required />
+                          <Input placeholder="Dupont" value={lastName} onChange={e => setLastName(e.target.value)} className="auth-input h-12 pl-12 rounded-xl transition-all font-medium" required />
                         </div>
                       </div>
                     </div>
@@ -480,7 +490,7 @@ export default function Register() {
                   {step === 2 && !isInvitation && (
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label className="text-foreground/85 font-medium ml-1">Raison sociale</Label>
+                        <Label className="auth-label ml-1">Raison sociale</Label>
                         <div className="relative">
                           <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
                           <CompanyAutocomplete
@@ -490,7 +500,7 @@ export default function Register() {
                           />
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground italic leading-relaxed">
+                      <p className="auth-copy text-xs italic leading-relaxed">
                         L'autocomplétion récupère les données officielles de l'État. Vous pourrez affiner vos réglages plus tard.
                       </p>
                     </div>
@@ -508,7 +518,7 @@ export default function Register() {
                               "relative p-4 rounded-2xl border-2 transition-all cursor-pointer group hover:shadow-card",
                               selectedPlan === p.id
                                 ? planStyles[p.id as keyof typeof planStyles].surface
-                                : "border-border/60 bg-card hover:border-primary/20"
+                                : "border-border/60 bg-white/70 hover:border-primary/20"
                             )}
                           >
                             <div className="flex items-center gap-4">
@@ -523,7 +533,7 @@ export default function Register() {
                                   <h3 className="font-bold text-foreground">{p.name}</h3>
                                   <span className="text-sm font-bold text-primary">{p.price}</span>
                                 </div>
-                                <p className="text-xs text-muted-foreground">{p.description}</p>
+                                <p className="auth-copy text-xs">{p.description}</p>
                               </div>
                             </div>
                             {p.popular && (
@@ -534,7 +544,7 @@ export default function Register() {
                           </div>
                         ))}
                       </div>
-                      <p className="text-[11px] text-muted-foreground text-center italic">
+                      <p className="auth-copy text-[11px] text-center italic">
                         Les plans sont gratuits pendant la phase de test.
                       </p>
                     </div>
@@ -543,7 +553,7 @@ export default function Register() {
                   {step === 4 && (
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <Label className="text-foreground/85 font-medium ml-1">Email professionnel</Label>
+                        <Label className="auth-label ml-1">Email professionnel</Label>
                         <div className="relative">
                           <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                           <Input
@@ -551,7 +561,7 @@ export default function Register() {
                             placeholder="jean.dupont@entreprise.fr"
                             value={email}
                             onChange={e => !invitationToken && setEmail(e.target.value)}
-                            className={cn("h-12 pl-12 rounded-xl transition-all font-medium", invitationToken && "bg-secondary/80 text-muted-foreground cursor-not-allowed border-border/60")}
+                            className={cn("auth-input h-12 pl-12 rounded-xl transition-all font-medium", invitationToken && "bg-secondary/80 text-muted-foreground cursor-not-allowed border-border/60")}
                             required
                             disabled={!!invitationToken}
                           />
@@ -564,10 +574,10 @@ export default function Register() {
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-foreground/85 font-medium ml-1">Mot de passe</Label>
+                        <Label className="auth-label ml-1">Mot de passe</Label>
                         <div className="relative">
                           <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input type="password" placeholder="Min. 8 caractères" value={password} onChange={e => setPassword(e.target.value)} className="h-12 pl-12 rounded-xl transition-all font-medium" required minLength={8} />
+                          <Input type="password" placeholder="Min. 8 caractères" value={password} onChange={e => setPassword(e.target.value)} className="auth-input h-12 pl-12 rounded-xl transition-all font-medium" required minLength={8} />
                         </div>
                       </div>
                     </div>
@@ -583,7 +593,7 @@ export default function Register() {
                       type={step === 4 ? "submit" : "button"}
                       onClick={step < 4 ? handleNext : undefined}
                       disabled={loading}
-                      className="flex-1 h-12 gradient-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all group"
+                      className="flex-1 h-12 gradient-primary text-white font-bold rounded-xl transition-all group"
                     >
                       {loading ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : (
                         <span className="flex items-center justify-center gap-2">
@@ -596,9 +606,16 @@ export default function Register() {
                 </motion.form>
               </AnimatePresence>
 
-              <p className="text-center text-sm text-muted-foreground pt-4">
+              <p className="auth-copy text-center text-sm pt-4">
                 Déjà un compte ?{" "}
-                <Link to={`/login${invitationToken ? `?token=${invitationToken}` : ""}`} className="text-primary font-bold hover:underline">Se connecter</Link>
+                <Link
+                  to={buildRelativeAppPath("/login", {
+                    searchParams: invitationToken ? { token: invitationToken } : undefined,
+                  })}
+                  className="text-primary font-bold hover:underline"
+                >
+                  Se connecter
+                </Link>
               </p>
             </div>
           )}
@@ -607,7 +624,7 @@ export default function Register() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-8 py-4"
+              className="auth-panel rounded-[2rem] p-8 text-center space-y-8 py-4"
             >
               <div className="relative mx-auto w-32 h-32">
                 <div className="absolute inset-0 bg-primary/10 rounded-full animate-ping" />
@@ -620,12 +637,13 @@ export default function Register() {
               </div>
 
               <div className="space-y-3">
-                <h2 className="text-3xl font-display font-bold text-foreground tracking-tight">Vérifiez vos e-mails</h2>
-                <p className="text-muted-foreground leading-relaxed">
+                <p className="auth-kicker">Activation</p>
+                <h2 className="auth-heading text-3xl font-bold">Vérifiez vos e-mails</h2>
+                <p className="auth-copy leading-relaxed">
                   Un lien de confirmation a été envoyé à :<br />
                   <span className="font-bold text-foreground">{email}</span>
                 </p>
-                <p className="text-sm text-muted-foreground bg-card p-4 rounded-2xl border border-border/60 shadow-card">
+                <p className="auth-card auth-copy text-sm p-4 rounded-2xl">
                   Cliquez sur le lien dans l'e-mail pour activer votre compte et commencer à utiliser Planify.
                 </p>
               </div>
@@ -642,7 +660,7 @@ export default function Register() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => navigate("/login")}
+                  onClick={() => navigate(buildRelativeAppPath("/login"))}
                   className="h-12 rounded-xl text-muted-foreground hover:bg-secondary transition-all"
                 >
                   Se connecter
@@ -650,7 +668,7 @@ export default function Register() {
               </div>
 
               <div className="pt-4 border-t border-border/60 italic">
-                <p className="text-xs text-muted-foreground">
+                <p className="auth-copy text-xs">
                   Vous ne trouvez pas l'e-mail ? Pensez à vérifier vos spams ou réessayez l'inscription dans quelques minutes.
                 </p>
               </div>
@@ -659,13 +677,13 @@ export default function Register() {
         </div>
 
         <div className="absolute bottom-8 right-8 hidden md:block">
-          <div className="flex items-center gap-3 bg-card p-4 rounded-2xl border border-border/60 shadow-card cursor-pointer hover:bg-secondary/60 transition-all translate-y-0 hover:-translate-y-1">
+          <div className="auth-card flex items-center gap-3 p-4 rounded-2xl cursor-pointer hover:bg-white/75 transition-all translate-y-0 hover:-translate-y-1">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
               <Rocket className="h-5 w-5" />
             </div>
             <div className="text-xs leading-tight pr-2">
               <p className="font-bold text-foreground">Besoin d'aide ?</p>
-              <p className="text-muted-foreground">Contactez notre support</p>
+              <p className="auth-copy">Contactez notre support</p>
             </div>
           </div>
         </div>

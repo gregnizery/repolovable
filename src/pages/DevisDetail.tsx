@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PdfPreview } from "@/components/PdfPreview";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
 import { useState } from "react";
+import { A4DocumentPreview } from "@/components/documents/A4DocumentPreview";
 
 const statusConfig: Record<string, { label: string; class: string; icon: typeof Check }> = {
   brouillon: { label: "Brouillon", class: "bg-muted text-muted-foreground", icon: FileText },
@@ -45,6 +46,25 @@ export default function DevisDetail() {
   const tva = Number(devis.total_ttc) - Number(devis.total_ht);
   const sc = statusConfig[devis.status];
   const items = devis.devis_items || [];
+  const sortedItems = [...items].sort((a, b) => a.sort_order - b.sort_order);
+  const previewItems = sortedItems.map((item) => {
+    const lineBase = Number(item.quantity) * Number(item.unit_price);
+    const lineDiscount = item.discount_type === "percent"
+      ? lineBase * (Number(item.discount_amount) / 100)
+      : Number(item.discount_amount);
+
+    return {
+      description: item.description,
+      quantity: Number(item.quantity),
+      unitPrice: Number(item.unit_price),
+      lineTotal: Math.max(0, lineBase - lineDiscount),
+    };
+  });
+  const subtotalHT = previewItems.reduce((sum, item) => sum + item.lineTotal, 0);
+  const globalDiscountValue = devis.discount_type === "percent"
+    ? subtotalHT * (Number(devis.discount_amount) / 100)
+    : Number(devis.discount_amount) || 0;
+  const senderName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ");
 
   const factures = (devis as any).factures || [];
 
@@ -100,96 +120,44 @@ export default function DevisDetail() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <Card className="shadow-lg border-border/50 overflow-hidden">
-              <div className="gradient-primary p-6 text-white">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-white/70 text-sm font-medium uppercase tracking-wider">Devis</p>
-                    <p className="text-2xl font-display font-bold mt-1">{devis.number}</p>
-                  </div>
-                  <div className="text-right text-sm text-white/80">
-                    <p>Émis le {new Date(devis.date).toLocaleDateString("fr-FR")}</p>
-                    {devis.valid_until && <p>Valide jusqu'au {new Date(devis.valid_until).toLocaleDateString("fr-FR")}</p>}
-                  </div>
-                </div>
-              </div>
-              <CardContent className="p-6 space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Émetteur</p>
-                    <p className="font-semibold">{profile?.company_name || "Planify Events"}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Client</p>
-                    <p className="font-semibold">{devis.clients?.name || ""}</p>
-                    {devis.clients?.company && <p className="text-sm text-muted-foreground">{devis.clients.company}</p>}
-                    {devis.clients?.email && <p className="text-sm text-muted-foreground">{devis.clients.email}</p>}
-                  </div>
-                </div>
-
-                <div className="border border-border rounded-xl overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead><tr className="bg-muted/50">
-                      <th className="text-left p-3 font-medium text-muted-foreground">Description</th>
-                      <th className="text-center p-3 font-medium text-muted-foreground w-16">Qté</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground w-28">P.U. HT</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground w-24">Remise</th>
-                      <th className="text-right p-3 font-medium text-muted-foreground w-28">Total HT</th>
-                    </tr></thead>
-                    <tbody>
-                      {items.sort((a, b) => a.sort_order - b.sort_order).map(item => {
-                        const lineBase = Number(item.quantity) * Number(item.unit_price);
-                        const lineDiscount = item.discount_type === "percent"
-                          ? lineBase * (Number(item.discount_amount) / 100)
-                          : Number(item.discount_amount);
-                        const lineTotal = lineBase - lineDiscount;
-                        return (
-                          <tr key={item.id} className="border-t border-border/50">
-                            <td className="p-3 whitespace-pre-wrap">{item.description}</td>
-                            <td className="p-3 text-center text-muted-foreground">{Number(item.quantity)}</td>
-                            <td className="p-3 text-right text-muted-foreground">{Number(item.unit_price).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</td>
-                            <td className="p-3 text-right text-muted-foreground italic">
-                              {Number(item.discount_amount) > 0 ? (
-                                item.discount_type === "percent" ? `-${item.discount_amount}%` : `-${item.discount_amount}€`
-                              ) : "-"}
-                            </td>
-                            <td className="p-3 text-right font-medium">{lineTotal.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="flex justify-end">
-                  <div className="w-80 space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Sous-total HT</span>
-                      <span className="font-medium">{(Number(devis.total_ht) + (devis.discount_type === "percent" ? (Number(devis.total_ht) / (1 - Number(devis.discount_amount) / 100)) * (Number(devis.discount_amount) / 100) : Number(devis.discount_amount))).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                    </div>
-                    {/* Simplified: calculate global discount directly if we want it perfect, 
-                        or just rely on the stored total_ht which is already discounted. 
-                        Let's show the breakdown if discount exists. */}
-                    {Number(devis.discount_amount) > 0 && (
-                      <div className="flex justify-between text-destructive italic">
-                        <span>Remise globale ({devis.discount_type === "percent" ? `${devis.discount_amount}%` : `${devis.discount_amount}€`})</span>
-                        <span>-{(devis.discount_type === "percent" ? (Number(devis.total_ht) / (1 - Number(devis.discount_amount) / 100)) * (Number(devis.discount_amount) / 100) : Number(devis.discount_amount)).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between pt-1 border-t border-border/50">
-                      <span className="text-muted-foreground font-medium">Net HT</span>
-                      <span className="font-semibold">{Number(devis.total_ht).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                    </div>
-                    {Number(devis.tva_rate) > 0 && (
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>TVA ({(Number(devis.tva_rate) * 100).toFixed(0)}%)</span>
-                        <span className="font-medium">{tva.toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between pt-2 border-t border-primary/20 text-base font-bold">
-                      <span>{Number(devis.tva_rate) > 0 ? "Total TTC" : "Total"}</span>
-                      <span className="text-primary">{Number(devis.total_ttc).toLocaleString("fr-FR", { minimumFractionDigits: 2 })}€</span>
-                    </div>
+            <Card className="overflow-hidden border-border/50 shadow-card">
+              <CardContent className="p-4 md:p-6">
+                <div className="overflow-x-auto rounded-[28px] border border-border/60 bg-[#ece4d8] p-3 md:p-5">
+                  <div className="min-w-[595px]">
+                    <A4DocumentPreview
+                      data={{
+                        type: "devis",
+                        number: devis.number,
+                        date: devis.date,
+                        validUntil: devis.valid_until || undefined,
+                        notes: devis.notes || undefined,
+                        tvaRate: Number(devis.tva_rate) || 0,
+                        items: previewItems,
+                        subtotalHT,
+                        discountAmount: globalDiscountValue,
+                        discountLabel:
+                          globalDiscountValue > 0
+                            ? `Remise globale (${devis.discount_type === "percent" ? `${devis.discount_amount}%` : `${devis.discount_amount} EUR`})`
+                            : undefined,
+                        totalHT: Number(devis.total_ht),
+                        tvaAmount: tva,
+                        totalTTC: Number(devis.total_ttc),
+                        emitterName: senderName || undefined,
+                        emitterCompany: profile?.company_name || "Planify Events",
+                        emitterAddress: profile?.address || undefined,
+                        emitterPhone: profile?.phone || undefined,
+                        emitterSiret: profile?.siret || undefined,
+                        emitterLogoUrl: profile?.company_logo_url || undefined,
+                        emitterIban: profile?.iban || undefined,
+                        emitterBic: profile?.bic || undefined,
+                        recipientLabel: "Client",
+                        recipientName: devis.clients?.name || "",
+                        recipientCompany: devis.clients?.company || undefined,
+                        recipientEmail: devis.clients?.email || undefined,
+                        recipientPhone: devis.clients?.phone || undefined,
+                        accentColor: "hsl(var(--primary))",
+                      }}
+                    />
                   </div>
                 </div>
               </CardContent>

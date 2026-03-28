@@ -1,207 +1,262 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowUpDown, BarChart3, Download, Package, Plus, ScanLine } from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { WorkspaceHero, WorkspacePage, WorkspacePanel } from "@/components/layout/Workspace";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useMateriel } from "@/hooks/use-data";
-import { useUserRole, canEdit } from "@/hooks/use-user-role";
-import { Search, Plus, Package, ScanLine, ArrowUpDown, BarChart3, Download, MapPin } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { exportToCSV } from "@/lib/export-csv";
 import { cn } from "@/lib/utils";
-import { EmptyState } from "@/components/EmptyState";
-import { SkeletonCard } from "@/components/SkeletonCard";
+import { formatCount, formatCurrency, formatDateLabel } from "@/lib/formatters";
+import type { EquipmentListItem } from "@/lib/view-models";
+import { useMateriel } from "@/hooks/use-data";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
+import { useUserRole, canEdit } from "@/hooks/use-user-role";
 import { MaterielQrHover } from "@/components/MaterielQrHover";
-import { Users } from "lucide-react";
+import {
+  DenseTable,
+  DenseTableBody,
+  DenseTableCell,
+  DenseTableHead,
+  DenseTableHeader,
+  DenseTableRow,
+  FilterBar,
+  MetricStrip,
+  SectionHeader,
+  StatusPill,
+  WorkbenchPanel,
+} from "@/components/workbench/primitives";
 
-const statusConfig: Record<string, { label: string; class: string }> = {
-  disponible: { label: "Disponible", class: "bg-success/10 text-success" },
-  en_mission: { label: "En mission", class: "bg-info/10 text-info" },
-  maintenance: { label: "Maintenance", class: "bg-warning/10 text-warning" },
-  hors_service: { label: "Hors service", class: "bg-destructive/10 text-destructive" },
+const statusFilters = ["all", "disponible", "en_mission", "maintenance", "hors_service"] as const;
+
+const statusLabel: Record<string, string> = {
+  disponible: "Disponible",
+  en_mission: "En mission",
+  maintenance: "Maintenance",
+  hors_service: "Hors service",
 };
 
-function getActiveMission(eq: any) {
-  if (!eq.mission_materiel || eq.mission_materiel.length === 0) return null;
-  // Look for a mission that is currently active for this equipment
-  const activeMissions = eq.mission_materiel
-    .map((mm: any) => mm.missions)
-    .filter((m: any) => m && (m.status === "en_cours" || m.status === "planifiée") && m.end_date);
+const statusTone: Record<string, "success" | "info" | "warning" | "destructive"> = {
+  disponible: "success",
+  en_mission: "info",
+  maintenance: "warning",
+  hors_service: "destructive",
+};
 
-  if (activeMissions.length === 0) return null;
-  // Find the mission ending the latest just in case there are multiple
-  return activeMissions.sort((a: any, b: any) => new Date(b.end_date).getTime() - new Date(a.end_date).getTime())[0];
+function getAvailability(item: EquipmentListItem) {
+  const activeMission = item.mission_materiel
+    ?.map((entry) => entry.missions)
+    .find((mission) => mission && (mission.status === "en_cours" || mission.status === "planifiée") && mission.end_date);
+
+  if (!activeMission?.end_date) return item.status === "disponible" ? "Disponible maintenant" : statusLabel[item.status] ?? item.status;
+  return `Retour prévu ${formatDateLabel(activeMission.end_date)}`;
+}
+
+function getSource(item: EquipmentListItem) {
+  if (item.is_subrented) return item.suppliers?.name || "Sous-location";
+  if (item.is_b2b_shared) return "Partage B2B";
+  return "Stock interne";
 }
 
 export default function Materiel() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [catFilter, setCatFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<(typeof statusFilters)[number]>("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const { data: equipment = [], isLoading } = useMateriel();
   const { data: roleData } = useUserRole();
   const canEditMat = canEdit(roleData?.role, "materiel");
+
   useRealtimeSync("materiel", [["materiel"]]);
 
-  const categories = ["all", ...new Set(equipment.map(e => e.category).filter(Boolean))];
-  const filtered = equipment.filter(e => {
-    const matchSearch = e.name.toLowerCase().includes(search.toLowerCase());
-    const matchCat = catFilter === "all" || e.category === catFilter;
-    return matchSearch && matchCat;
+  const equipmentRows = equipment as EquipmentListItem[];
+  const categories = ["all", ...new Set(equipmentRows.map((item) => item.category).filter(Boolean))];
+  const filteredEquipment = equipmentRows.filter((item) => {
+    const haystack = [item.name, item.category ?? "", item.storage_locations?.name ?? "", item.suppliers?.name ?? ""]
+      .join(" ")
+      .toLowerCase();
+    const matchesSearch = haystack.includes(search.toLowerCase());
+    const matchesStatus = statusFilter === "all" || item.status === statusFilter;
+    const matchesCategory = categoryFilter === "all" || item.category === categoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
+
+  const availableCount = equipmentRows.filter((item) => item.status === "disponible").length;
+  const externalCount = equipmentRows.filter((item) => item.is_subrented).length;
+  const lowStockCount = equipmentRows.filter((item) => item.quantity <= 1 && item.status !== "hors_service").length;
 
   return (
     <AppLayout>
-      <WorkspacePage>
-        <WorkspaceHero
-          eyebrow="Parc"
-          title="Collection Matériel"
-          description="Supervisez le parc, la disponibilité, la sous-location et les alertes de stock dans une interface pensée pour l’arbitrage logistique."
-          actions={(
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
+        <SectionHeader
+          eyebrow="Logistique"
+          title="Parc matériel"
+          description="Inventaire compact, disponibilité réelle et lecture claire des sources de stock."
+          actions={
             <>
-              <Button variant="outline" className="gap-2 rounded-2xl" onClick={() => exportToCSV(equipment, [
-                { key: "name", label: "Nom" },
-                { key: "category", label: "Catégorie" },
-                { key: "tracking_type", label: "Type", format: (v) => v === "batch" ? "Lot" : "Unité" },
-                { key: "serial_number", label: "N° série" },
-                { key: "barcode", label: "Code-barres" },
-                { key: "status", label: "Statut" },
-                { key: "quantity", label: "Quantité" },
-                { key: "purchase_price", label: "Prix achat", format: (v) => v ? `${v}€` : "" },
-                { key: "rental_price", label: "Prix location/j", format: (v) => v ? `${v}€` : "" },
-                { key: "location", label: "Emplacement" },
-              ], "materiel")}>
-                <Download className="h-4 w-4" />
-                Exporter
-              </Button>
-              <Button variant="outline" className="gap-2 rounded-2xl" onClick={() => navigate("/materiel/disponibilites")}><BarChart3 className="h-4 w-4" /> Disponibilités</Button>
-              {canEditMat && (
+              {canEditMat ? (
                 <>
-                  <Button variant="outline" className="gap-2 rounded-2xl" onClick={() => navigate("/materiel/mouvements")}><ArrowUpDown className="h-4 w-4" /> Mouvements</Button>
-                  <Button variant="outline" className="gap-2 rounded-2xl" onClick={() => navigate("/materiel/scan")}><ScanLine className="h-4 w-4" /> Scanner</Button>
-                  <Button className="rounded-2xl gap-2" onClick={() => navigate("/materiel/nouveau")}><Plus className="h-4 w-4" /> Ajouter</Button>
+                  <Button variant="outline" className="gap-2" onClick={() => navigate("/materiel/disponibilites")}>
+                    <BarChart3 className="h-4 w-4" />
+                    Disponibilités
+                  </Button>
+                  <Button variant="outline" className="gap-2" onClick={() => navigate("/materiel/mouvements")}>
+                    <ArrowUpDown className="h-4 w-4" />
+                    Mouvements
+                  </Button>
+                  <Button variant="outline" className="gap-2" onClick={() => navigate("/materiel/scan")}>
+                    <ScanLine className="h-4 w-4" />
+                    Scanner
+                  </Button>
+                  <Button className="gap-2" onClick={() => navigate("/materiel/nouveau")}>
+                    <Plus className="h-4 w-4" />
+                    Ajouter
+                  </Button>
                 </>
-              )}
+              ) : null}
             </>
-          )}
-          aside={(
-            <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-              <div className="rounded-[24px] border border-border/70 bg-card/90 p-4 shadow-sm backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Inventaire</p>
-                <p className="mt-2 text-2xl font-display font-bold text-foreground">{equipment.length}</p>
-                <p className="mt-1 text-sm text-muted-foreground">équipement(s) enregistrés.</p>
-              </div>
-              <div className="rounded-[24px] border border-border/70 bg-card/90 p-4 shadow-sm backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Disponibles</p>
-                <p className="mt-2 text-2xl font-display font-bold text-success">{equipment.filter((e) => e.status === "disponible").length}</p>
-                <p className="mt-1 text-sm text-muted-foreground">prêts à être affectés.</p>
-              </div>
-              <div className="rounded-[24px] border border-border/70 bg-card/90 p-4 shadow-sm backdrop-blur-sm">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Sous-location</p>
-                <p className="mt-2 text-2xl font-display font-bold text-accent">{equipment.filter((e) => (e as any).is_subrented).length}</p>
-                <p className="mt-1 text-sm text-muted-foreground">élément(s) issus du réseau partenaire.</p>
-              </div>
-            </div>
-          )}
+          }
         />
 
-        <WorkspacePanel title="Filtrer le parc" description="Recherche instantanée et segmentation par catégorie pour vérifier l’état du stock sans changer d’écran.">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-11 rounded-2xl" />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {categories.map(c => (
-                <button key={c || "all"} onClick={() => setCatFilter(c)}
-                  className={cn("text-xs font-medium px-3 py-1.5 rounded-full transition-colors",
-                    catFilter === c ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  )}>
-                  {c === "all" ? "Tous" : c}
-                </button>
-              ))}
-            </div>
-          </div>
-        </WorkspacePanel>
+        <MetricStrip
+          items={[
+            { label: "Inventaire", value: formatCount(equipmentRows.length), detail: "élément(s) suivis", icon: Package, tone: "default" },
+            { label: "Disponibles", value: formatCount(availableCount), detail: "mobilisables immédiatement", icon: Package, tone: "success" },
+            { label: "Sous-location", value: formatCount(externalCount), detail: "ressources externes", icon: Package, tone: "info" },
+            { label: "Stock critique", value: formatCount(lowStockCount), detail: "à arbitrer", icon: Package, tone: "warning" },
+          ]}
+        />
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} variant="equipment" />)}
-          </div>
-        ) : filtered.length === 0 && search ? (
-          <EmptyState icon={Search} title="Aucun résultat" description={`Aucun équipement ne correspond à "${search}".`} />
-        ) : filtered.length === 0 ? (
-          <EmptyState icon={Package} title="Aucun matériel enregistré" description="Ajoutez votre premier équipement." actionLabel="Ajouter du matériel" onAction={() => navigate("/materiel/nouveau")} />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(eq => (
-              <Card key={eq.id} className="shadow-card border-border/50 hover:shadow-lg transition-all duration-300 cursor-pointer group" onClick={() => navigate(`/materiel/${eq.id}`)}>
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex gap-2">
-                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center", (eq as any).is_subrented ? "bg-accent/15 text-accent" : "bg-warning/10 text-warning")}>
-                        {(eq as any).is_subrented ? <Users className="h-5 w-5" /> : <Package className="h-5 w-5" />}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <MaterielQrHover id={eq.id} name={eq.name} barcode={eq.barcode} serialNumber={eq.serial_number} />
-                      <span className={cn("text-xs font-medium px-2.5 py-1 rounded-full", statusConfig[eq.status]?.class)}>{statusConfig[eq.status]?.label}</span>
-                    </div>
-                  </div>
-                  <h3 className="font-semibold group-hover:text-primary transition-colors">{eq.name}</h3>
-                  <p className="text-sm text-muted-foreground">{eq.category || ""}</p>
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-border text-sm">
-                    <div className="flex flex-col gap-1.5">
-                      {eq.tracking_type === "batch" ? (
-                        <span className="text-xs font-semibold px-2 py-0.5 bg-muted rounded-md border border-border w-fit">Lot de {eq.quantity}</span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">{eq.serial_number ? `S/N: ${eq.serial_number}` : ""}</span>
-                      )}
-                      {(eq as any).storage_locations?.name && !(eq as any).is_subrented && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {(eq as any).storage_locations.name}</span>
-                      )}
-                      {(eq as any).is_subrented && (
-                        <span className="text-xs text-accent font-medium flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {(eq as any).suppliers?.name || "Sous-location"}
-                        </span>
-                      )}
+        <WorkbenchPanel title="Inventaire opérationnel" description="Disponibilité, localisation et source du stock sur une même ligne.">
+          <FilterBar
+            searchValue={search}
+            onSearchChange={setSearch}
+            searchPlaceholder="Nom, catégorie, stockage ou fournisseur"
+            filters={
+              <>
+                {statusFilters.map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setStatusFilter(status)}
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-sm transition-colors",
+                      statusFilter === status
+                        ? "border-primary/20 bg-primary/10 text-foreground"
+                        : "border-border/70 bg-background text-muted-foreground hover:border-primary/20 hover:text-foreground",
+                    )}
+                  >
+                    {status === "all" ? "Tous les statuts" : statusLabel[status]}
+                  </button>
+                ))}
+              </>
+            }
+            actions={
+              <>
+                <select
+                  value={categoryFilter}
+                  onChange={(event) => setCategoryFilter(event.target.value)}
+                  className="h-10 rounded-lg border border-border/70 bg-background px-3 text-sm text-foreground"
+                >
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category === "all" ? "Toutes les catégories" : category}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() =>
+                    exportToCSV(
+                      filteredEquipment,
+                      [
+                        { key: "name", label: "Nom" },
+                        { key: "category", label: "Catégorie" },
+                        { key: "status", label: "Statut" },
+                        { key: "quantity", label: "Quantité" },
+                        { key: "location", label: "Emplacement" },
+                        { key: "rental_price", label: "Tarif/jour", format: (value) => formatCurrency(Number(value || 0)) },
+                      ],
+                      "materiel",
+                    )
+                  }
+                >
+                  <Download className="h-4 w-4" />
+                  Exporter
+                </Button>
+              </>
+            }
+          />
 
-                      {/* Affichage de la disponibilité pour les matériels en mission */}
-                      {(() => {
-                        if (eq.status !== "en_mission") return null;
-                        const activeMission = getActiveMission(eq);
-                        if (!activeMission || !activeMission.end_date) return null;
-
-                        const endDate = new Date(activeMission.end_date);
-                        const today = new Date();
-                        const diffTime = endDate.getTime() - today.getTime();
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-                        return (
-                          <div className="flex flex-col gap-0.5 mt-1 border border-info/50 bg-info/5 p-1.5 rounded-md">
-                            <span className="text-[10px] font-semibold text-info uppercase tracking-wider">Disponibilité</span>
-                            <span className="text-xs text-info/90">
-                              {diffDays > 0
-                                ? `Dans ${diffDays} jour${diffDays > 1 ? 's' : ''} (${endDate.toLocaleDateString("fr-FR")})`
-                                : diffDays === 0
-                                  ? `Demain (${endDate.toLocaleDateString("fr-FR")})`
-                                  : `Théoriquement disponible (mission terminée)`}
-                            </span>
+          <div className="mt-4">
+            {isLoading ? (
+              <p className="text-sm text-muted-foreground">Chargement de l’inventaire…</p>
+            ) : filteredEquipment.length === 0 ? (
+              <EmptyState
+                icon={Package}
+                title={search ? "Aucun résultat" : "Aucun matériel enregistré"}
+                description={
+                  search
+                    ? `Aucun équipement ne correspond à “${search}”.`
+                    : "Ajoutez votre premier équipement pour ouvrir le suivi du parc."
+                }
+                actionLabel={!search && canEditMat ? "Ajouter du matériel" : undefined}
+                onAction={!search && canEditMat ? () => navigate("/materiel/nouveau") : undefined}
+              />
+            ) : (
+              <DenseTable>
+                <DenseTableHeader>
+                  <DenseTableRow>
+                    <DenseTableHead>Équipement</DenseTableHead>
+                    <DenseTableHead>Catégorie</DenseTableHead>
+                    <DenseTableHead>Disponibilité</DenseTableHead>
+                    <DenseTableHead>Localisation</DenseTableHead>
+                    <DenseTableHead>Source</DenseTableHead>
+                    <DenseTableHead>Statut</DenseTableHead>
+                    <DenseTableHead className="text-right">Tarif / jour</DenseTableHead>
+                  </DenseTableRow>
+                </DenseTableHeader>
+                <DenseTableBody>
+                  {filteredEquipment.map((item) => (
+                    <DenseTableRow key={item.id} className="cursor-pointer" onClick={() => navigate(`/materiel/${item.id}`)}>
+                      <DenseTableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate font-medium text-foreground">{item.name}</p>
+                              <MaterielQrHover
+                                id={item.id}
+                                name={item.name}
+                                barcode={item.barcode}
+                                serialNumber={item.serial_number}
+                              />
+                            </div>
+                            <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                              {item.tracking_type === "batch" ? `Lot · ${item.quantity}` : item.serial_number || "Unité suivie"}
+                            </p>
                           </div>
-                        );
-                      })()}
-                    </div>
-                    <span className="font-semibold self-end">{eq.rental_price ? `${eq.rental_price}€/j` : ""}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                        </div>
+                      </DenseTableCell>
+                      <DenseTableCell>{item.category || "Sans catégorie"}</DenseTableCell>
+                      <DenseTableCell className="text-muted-foreground">{getAvailability(item)}</DenseTableCell>
+                      <DenseTableCell className="text-muted-foreground">
+                        {item.storage_locations?.name || item.location || "Non renseigné"}
+                      </DenseTableCell>
+                      <DenseTableCell className="text-muted-foreground">{getSource(item)}</DenseTableCell>
+                      <DenseTableCell>
+                        <StatusPill label={statusLabel[item.status] ?? item.status} tone={statusTone[item.status] ?? "default"} />
+                      </DenseTableCell>
+                      <DenseTableCell className="text-right font-mono">
+                        {item.rental_price ? formatCurrency(item.rental_price) : "—"}
+                      </DenseTableCell>
+                    </DenseTableRow>
+                  ))}
+                </DenseTableBody>
+              </DenseTable>
+            )}
           </div>
-        )}
-      </WorkspacePage>
+        </WorkbenchPanel>
+      </div>
     </AppLayout>
   );
 }

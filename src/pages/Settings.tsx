@@ -23,7 +23,9 @@ import { InvoiceItemTemplatesManager } from "@/components/finance/InvoiceItemTem
 import { CompanyAutocomplete } from "@/components/CompanyAutocomplete";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useAuditLogs, type AuditLog } from "@/hooks/use-audit-logs";
+import { getCalendarFeedUrl } from "@/lib/supabase-urls";
 import { ClipboardList } from "lucide-react";
+import { fetchCurrentTeamId } from "@/lib/current-team";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -70,19 +72,20 @@ export default function Settings() {
 
 
   const { data: whiteLabel } = useQuery({
-    queryKey: ["white-label-settings"],
+    queryKey: ["white-label-settings", team?.team_id],
     queryFn: async () => {
-      if (!user) return null;
+      if (!user || !team?.team_id) return null;
 
       const { data, error } = await (supabase as any)
         .from("white_label_settings")
         .select("*")
+        .eq("team_id", team.team_id)
         .limit(1)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!team?.team_id,
   });
 
   const { data: profile, isLoading } = useQuery({
@@ -99,6 +102,8 @@ export default function Settings() {
     },
     enabled: !!user,
   });
+
+  const calendarFeedUrl = getCalendarFeedUrl(profile?.calendar_token);
 
   useEffect(() => {
     if (profile) {
@@ -156,10 +161,10 @@ export default function Settings() {
   const saveBrandingMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Non connecté");
-      const { data: teamMember } = await supabase.from("team_members").select("team_id").eq("user_id", user.id).limit(1).maybeSingle();
-      if (!teamMember?.team_id) throw new Error("Aucune équipe");
+      const teamId = team?.team_id || await fetchCurrentTeamId(user.id);
+      if (!teamId) throw new Error("Aucune équipe");
       const payload = {
-        team_id: teamMember.team_id,
+        team_id: teamId,
         primary_color: brandPrimaryColor,
         secondary_color: brandSecondaryColor,
         legal_mentions: legalMentions || null,
@@ -557,16 +562,16 @@ export default function Settings() {
                           <div className="flex gap-2">
                             <Input
                               readOnly
-                              value={profile?.calendar_token ? `https://usixljyrqcaaapksjyff.functions.supabase.co/get-calendar-feed?token=${profile.calendar_token}` : "Chargement..."}
+                              value={calendarFeedUrl ?? "Chargement..."}
                               className="font-mono text-[10px] bg-background"
                             />
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={!profile?.calendar_token}
+                              disabled={!calendarFeedUrl}
                               onClick={() => {
-                                const url = `https://usixljyrqcaaapksjyff.functions.supabase.co/get-calendar-feed?token=${profile?.calendar_token}`;
-                                navigator.clipboard.writeText(url);
+                                if (!calendarFeedUrl) return;
+                                navigator.clipboard.writeText(calendarFeedUrl);
                                 toast.success("Lien copié !");
                               }}
                             >

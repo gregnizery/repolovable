@@ -37,9 +37,9 @@ serve(async (req) => {
     // Let's extract type, email, and the code/token
     // Note: The structure depends on if this is an Auth Custom Email webhook or a Database Webhook.
     // Assuming Custom Auth Email Webhook format which provides "token" directly
-    let type = payload.type || payload.user?.email_action_type || "signup";
-    let email = payload.email || payload.user?.email;
-    let token = payload.data?.token || payload.user?.token || "000000";
+    const type = payload.type || payload.user?.email_action_type || "signup";
+    const email = payload.email || payload.user?.email;
+    const token = payload.data?.token || payload.user?.token || "000000";
 
     console.log(`Processing auth email type: ${type} for ${email} with token ${token}`);
 

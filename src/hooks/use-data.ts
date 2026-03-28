@@ -2,8 +2,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserRole } from "@/hooks/use-user-role";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { toast } from "sonner";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { fetchCurrentTeamId } from "@/lib/current-team";
 
 export function useCurrentProfile() {
   const { user } = useAuth();
@@ -23,9 +25,16 @@ export function useCurrentProfile() {
   });
 }
 
-export async function getTeamId(userId: string) {
-  const { data } = await supabase.from("team_members").select("team_id").eq("user_id", userId).limit(1).maybeSingle();
-  return data?.team_id || null;
+export async function getTeamId(userId: string, preferredTeamId?: string | null) {
+  return preferredTeamId ?? fetchCurrentTeamId(userId);
+}
+
+function requireActiveTeamId(activeTeamId: string | null) {
+  if (!activeTeamId) {
+    throw new Error("Aucun workspace actif sélectionné");
+  }
+
+  return activeTeamId;
 }
 
 // ============================================
@@ -33,43 +42,50 @@ export async function getTeamId(userId: string) {
 // ============================================
 export function useClients(enabled = true) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["clients", user?.id],
+    queryKey: ["clients", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("clients")
         .select("*")
+        .eq("team_id", activeTeamId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && enabled,
+    enabled: !!user && !!activeTeamId && enabled,
   });
 }
 
 export function useClient(id: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["clients", id],
+    queryKey: ["clients", id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return null;
       const { data, error } = await supabase
         .from("clients")
         .select("*")
         .eq("id", id!)
+        .eq("team_id", activeTeamId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!id,
+    enabled: !!user && !!id && !!activeTeamId,
   });
 }
 
 export function useCreateClient() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (client: Omit<TablesInsert<"clients">, "user_id">) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("clients")
         .insert({ ...client, user_id: user!.id, team_id })
@@ -89,12 +105,14 @@ export function useCreateClient() {
 
 export function useUpdateClient() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"clients"> & { id: string }) => {
       const { data, error } = await supabase
         .from("clients")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -111,9 +129,14 @@ export function useUpdateClient() {
 
 export function useDeleteClient() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("clients").delete().eq("id", id);
+      const { error } = await supabase
+        .from("clients")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -130,14 +153,18 @@ export function useDeleteClient() {
 export function useMissions(enabled = true) {
   const { user } = useAuth();
   const { data: roleData } = useUserRole();
+  const { activeTeamId } = useWorkspace();
   const isProvider = roleData?.role === "prestataire";
 
   return useQuery({
-    queryKey: ["missions", user?.id, isProvider],
+    queryKey: ["missions", user?.id, isProvider, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
+
       const query = supabase
         .from("missions")
-        .select("*, clients(name, company, phone), devis(id, number, status, total_ht, total_ttc), mission_assignments(user_id, profiles(first_name, last_name, avatar_url))");
+        .select("*, clients(name, company, phone), devis(id, number, status, total_ht, total_ttc), mission_assignments(user_id, profiles(first_name, last_name, avatar_url))")
+        .eq("team_id", activeTeamId);
 
       // If provider, only fetch missions where they are assigned
       if (isProvider && user?.id) {
@@ -162,33 +189,37 @@ export function useMissions(enabled = true) {
         return mission;
       });
     },
-    enabled: !!user && enabled,
+    enabled: !!user && !!activeTeamId && enabled,
   });
 }
 
 export function useMission(id: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["missions", id],
+    queryKey: ["missions", id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return null;
       const { data, error } = await supabase
         .from("missions")
         .select("*, clients(name, company, phone), devis(id, number, status, total_ht, total_ttc)")
         .eq("id", id!)
+        .eq("team_id", activeTeamId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!id,
+    enabled: !!user && !!id && !!activeTeamId,
   });
 }
 
 export function useCreateMission() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (mission: Omit<TablesInsert<"missions">, "user_id">) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("missions")
         .insert({ ...mission, user_id: user!.id, team_id })
@@ -208,12 +239,14 @@ export function useCreateMission() {
 
 export function useUpdateMission() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"missions"> & { id: string }) => {
       const { data, error } = await supabase
         .from("missions")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -230,26 +263,30 @@ export function useUpdateMission() {
 
 export function useMissionAssignments(missionId: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["mission_assignments", missionId],
+    queryKey: ["mission_assignments", missionId, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("mission_assignments")
         .select("*, profiles:user_id(first_name, last_name, avatar_url)")
-        .eq("mission_id", missionId!);
+        .eq("mission_id", missionId!)
+        .eq("team_id", activeTeamId);
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!missionId,
+    enabled: !!user && !!missionId && !!activeTeamId,
   });
 }
 
 export function useAssignToMission() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ mission_id, user_id }: { mission_id: string; user_id: string }) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("mission_assignments")
         .insert({ mission_id, user_id, team_id })
@@ -275,13 +312,15 @@ export function useAssignToMission() {
 
 export function useUnassignFromMission() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ mission_id, user_id }: { mission_id: string; user_id: string }) => {
       const { error } = await supabase
         .from("mission_assignments")
         .delete()
         .eq("mission_id", mission_id)
-        .eq("user_id", user_id);
+        .eq("user_id", user_id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
     },
     onSuccess: (_, variables) => {
@@ -297,40 +336,47 @@ export function useUnassignFromMission() {
 // ============================================
 export function useDevisList(enabled = true) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["devis", user?.id],
+    queryKey: ["devis", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("devis")
         .select("*, clients(name, company)")
+        .eq("team_id", activeTeamId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && enabled,
+    enabled: !!user && !!activeTeamId && enabled,
   });
 }
 
 export function useDevis(id: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["devis", id],
+    queryKey: ["devis", id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return null;
       const { data, error } = await supabase
         .from("devis")
         .select("*, clients(name, company, email, phone), devis_items(*), missions(id, title), factures(id, status, total_ttc, type)")
         .eq("id", id!)
+        .eq("team_id", activeTeamId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!id,
+    enabled: !!user && !!id && !!activeTeamId,
   });
 }
 
 export function useCreateDevis() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({
       items,
@@ -338,7 +384,7 @@ export function useCreateDevis() {
     }: Omit<TablesInsert<"devis">, "user_id"> & {
       items: Omit<TablesInsert<"devis_items">, "devis_id">[];
     }) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("devis")
         .insert({ ...devis, user_id: user!.id, team_id })
@@ -365,6 +411,7 @@ export function useCreateDevis() {
 
 export function useUpdateDevis() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({
       id,
@@ -378,6 +425,7 @@ export function useUpdateDevis() {
         .from("devis")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -407,40 +455,47 @@ export function useUpdateDevis() {
 // ============================================
 export function useFactures(enabled = true) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["factures", user?.id],
+    queryKey: ["factures", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("factures")
         .select("*, clients(name, company), missions:mission_id(title)")
+        .eq("team_id", activeTeamId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && enabled,
+    enabled: !!user && !!activeTeamId && enabled,
   });
 }
 
 export function useFacture(id: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["factures", id],
+    queryKey: ["factures", id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return null;
       const { data, error } = await supabase
         .from("factures")
         .select("*, clients(name, company, email, phone), facture_items(*), devis(id, number, status), missions:mission_id(id, title)")
         .eq("id", id!)
+        .eq("team_id", activeTeamId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!id,
+    enabled: !!user && !!id && !!activeTeamId,
   });
 }
 
 export function useCreateFacture() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({
       items,
@@ -448,7 +503,7 @@ export function useCreateFacture() {
     }: Omit<TablesInsert<"factures">, "user_id"> & {
       items: Omit<TablesInsert<"facture_items">, "facture_id">[];
     }) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("factures")
         .insert({ ...facture, user_id: user!.id, team_id })
@@ -475,6 +530,7 @@ export function useCreateFacture() {
 
 export function useUpdateFacture() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({
       id,
@@ -488,6 +544,7 @@ export function useUpdateFacture() {
         .from("factures")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -517,40 +574,47 @@ export function useUpdateFacture() {
 // ============================================
 export function usePaiements(enabled = true) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["paiements", user?.id],
+    queryKey: ["paiements", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("paiements")
         .select("*, factures(number, clients(name))")
+        .eq("team_id", activeTeamId)
         .order("payment_date", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && enabled,
+    enabled: !!user && !!activeTeamId && enabled,
   });
 }
 
 export function useFacturePaiements(factureId: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["paiements", "facture", factureId],
+    queryKey: ["paiements", "facture", factureId, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("paiements")
         .select("*")
         .eq("facture_id", factureId!)
+        .eq("team_id", activeTeamId)
         .order("payment_date", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!factureId,
+    enabled: !!user && !!factureId && !!activeTeamId,
   });
 }
 
 export function useCreatePaiement() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (payload: {
       facture_id: string;
@@ -570,7 +634,7 @@ export function useCreatePaiement() {
         reference: payload.reference || null,
         notes: payload.notes || null,
         user_id: user!.id,
-        team_id: await getTeamId(user!.id),
+        team_id: await getTeamId(user!.id, activeTeamId),
         validation_status: isCash ? "pending" : "approved",
         cash_justification: isCash ? payload.cash_justification || null : null,
       };
@@ -599,6 +663,7 @@ export function useCreatePaiement() {
 
 export function useUpdatePaiementStatus() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, status, comment }: { id: string; status: "approved" | "rejected"; comment?: string }) => {
       const { user } = (await supabase.auth.getUser()).data;
@@ -611,6 +676,7 @@ export function useUpdatePaiementStatus() {
           validated_comment: comment || null,
         } as TablesUpdate<"paiements">)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -628,26 +694,34 @@ export function useUpdatePaiementStatus() {
 
 export function useFactureProofs(factureId: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["payment_proofs", factureId],
+    queryKey: ["payment_proofs", factureId, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("payment_proofs")
         .select("*")
         .eq("facture_id", factureId!)
+        .eq("team_id", activeTeamId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!factureId,
+    enabled: !!user && !!factureId && !!activeTeamId,
   });
 }
 
 export function useDeleteProof() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("payment_proofs").delete().eq("id", id);
+      const { error } = await supabase
+        .from("payment_proofs")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
       return true;
     },
@@ -661,17 +735,20 @@ export function useDeleteProof() {
 
 export function usePendingProofs(enabled = true) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["payment_proofs", "pending"],
+    queryKey: ["payment_proofs", "pending", activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("payment_proofs")
         .select("*, factures(id, number, clients(name))")
+        .eq("team_id", activeTeamId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && enabled,
+    enabled: !!user && !!activeTeamId && enabled,
   });
 }
 
@@ -680,24 +757,28 @@ export function usePendingProofs(enabled = true) {
 // ============================================
 export function useDevisAttachments(devisId: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["devis_attachments", devisId],
+    queryKey: ["devis_attachments", devisId, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("devis_attachments")
         .select("*")
         .eq("devis_id", devisId!)
+        .eq("team_id", activeTeamId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!devisId,
+    enabled: !!user && !!devisId && !!activeTeamId,
   });
 }
 
 export function useUploadDevisAttachment() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ devisId, file }: { devisId: string; file: File }) => {
       const fileExt = file.name.split(".").pop();
@@ -714,7 +795,7 @@ export function useUploadDevisAttachment() {
         .from("devis_attachments")
         .getPublicUrl(filePath);
 
-      const teamId = await getTeamId(user!.id);
+      const teamId = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("devis_attachments")
         .insert({
@@ -743,9 +824,14 @@ export function useUploadDevisAttachment() {
 
 export function useDeleteDevisAttachment() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, devisId, fileUrl }: { id: string; devisId: string; fileUrl: string }) => {
-      const { error } = await supabase.from("devis_attachments").delete().eq("id", id);
+      const { error } = await supabase
+        .from("devis_attachments")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
 
       // Extract path from public URL
@@ -772,26 +858,30 @@ export function useDeleteDevisAttachment() {
 // ============================================
 export function useMateriel(enabled = true) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["materiel", user?.id],
+    queryKey: ["materiel", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("materiel")
         .select("*, storage_locations(name), suppliers(name), mission_materiel(missions(id, title, status, start_date, end_date))")
+        .eq("team_id", activeTeamId)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && enabled,
+    enabled: !!user && !!activeTeamId && enabled,
   });
 }
 
 export function useCreateMateriel() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (item: Omit<TablesInsert<"materiel">, "user_id">) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("materiel")
         .insert({ ...item, user_id: user!.id, team_id })
@@ -811,12 +901,14 @@ export function useCreateMateriel() {
 
 export function useUpdateMateriel() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"materiel"> & { id: string }) => {
       const { data, error } = await supabase
         .from("materiel")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -833,9 +925,14 @@ export function useUpdateMateriel() {
 
 export function useDeleteMateriel() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("materiel").delete().eq("id", id);
+      const { error } = await supabase
+        .from("materiel")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -851,26 +948,30 @@ export function useDeleteMateriel() {
 // ============================================
 export function useSuppliers() {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["suppliers", user?.id],
+    queryKey: ["suppliers", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("suppliers")
         .select("*")
+        .eq("team_id", activeTeamId)
         .order("name", { ascending: true });
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!activeTeamId,
   });
 }
 
 export function useCreateSupplier() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (item: Omit<TablesInsert<"suppliers">, "team_id">) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("suppliers")
         .insert({ ...item, team_id })
@@ -890,12 +991,14 @@ export function useCreateSupplier() {
 
 export function useUpdateSupplier() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"suppliers"> & { id: string }) => {
       const { data, error } = await supabase
         .from("suppliers")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -915,12 +1018,16 @@ export function useUpdateSupplier() {
 // ============================================
 export function useProviders() {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["providers", user?.id],
+    queryKey: ["providers", user?.id, activeTeamId],
     queryFn: async () => {
+      const teamId = await getTeamId(user!.id, activeTeamId);
+      if (!teamId) return [];
       const { data, error } = await supabase
         .from("providers")
         .select("*")
+        .eq("team_id", teamId)
         .order("name", { ascending: true });
       if (error) throw error;
       return data;
@@ -931,31 +1038,38 @@ export function useProviders() {
 
 export function useProvider(id: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["providers", id],
+    queryKey: ["providers", id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return null;
       const { data, error } = await supabase
         .from("providers")
         .select("*")
         .eq("id", id!)
+        .eq("team_id", activeTeamId)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!id,
+    enabled: !!user && !!id && !!activeTeamId,
   });
 }
 
 export function useCurrentProvider() {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["current-provider", user?.id],
+    queryKey: ["current-provider", user?.id, activeTeamId],
     queryFn: async () => {
       if (!user) return null;
+      const teamId = await getTeamId(user.id, activeTeamId);
+      if (!teamId) return null;
       const { data, error } = await supabase
         .from("providers")
         .select("*")
         .eq("user_id", user.id)
+        .eq("team_id", teamId)
         .maybeSingle();
       if (error) throw error;
       return data;
@@ -967,9 +1081,10 @@ export function useCurrentProvider() {
 export function useCreateProvider() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (provider: Omit<TablesInsert<"providers">, "team_id">) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("providers")
         .upsert({ ...provider, team_id, is_onboarded: true }, { onConflict: "user_id,team_id" })
@@ -989,12 +1104,14 @@ export function useCreateProvider() {
 
 export function useUpdateProvider() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"providers"> & { id: string }) => {
       const { data, error } = await supabase
         .from("providers")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -1011,9 +1128,14 @@ export function useUpdateProvider() {
 
 export function useDeleteProvider() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("providers").delete().eq("id", id);
+      const { error } = await supabase
+        .from("providers")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1026,9 +1148,14 @@ export function useDeleteProvider() {
 
 export function useDeleteSupplier() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("suppliers").delete().eq("id", id);
+      const { error } = await supabase
+        .from("suppliers")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1045,10 +1172,11 @@ export function useDeleteSupplier() {
 
 export function useB2BInvitations() {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["b2b_invitations", user?.id],
+    queryKey: ["b2b_invitations", user?.id, activeTeamId],
     queryFn: async () => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("b2b_invitations")
         .select("*")
@@ -1057,7 +1185,7 @@ export function useB2BInvitations() {
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!activeTeamId,
   });
 }
 
@@ -1075,9 +1203,10 @@ function generateSecureToken() {
 export function useCreateB2BInvitation() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async () => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const token = generateSecureToken();
       // Expires in 7 days
       const expires_at = new Date();
@@ -1153,11 +1282,12 @@ export function useAcceptB2BInvitation() {
 
 export function useB2BCatalog() {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["b2b_catalog", user?.id],
+    queryKey: ["b2b_catalog", user?.id, activeTeamId],
     queryFn: async () => {
       // 1. Get connected supplier teams
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data: suppliers, error: suppliersError } = await supabase
         .from("suppliers")
         .select("connected_team_id")
@@ -1181,32 +1311,36 @@ export function useB2BCatalog() {
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!activeTeamId,
   });
 }
 
 export function useSubrentRequests() {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["subrent_requests", user?.id],
+    queryKey: ["subrent_requests", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("subrent_requests")
         .select("*, materiel:materiel_id(name, category), provider:teams!provider_team_id(name), requester:teams!requester_team_id(name)")
+        .or(`requester_team_id.eq.${activeTeamId},provider_team_id.eq.${activeTeamId}`)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!activeTeamId,
   });
 }
 
 export function useCreateSubrentRequest() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (request: Omit<TablesInsert<"subrent_requests">, "requester_team_id">) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("subrent_requests")
         .insert({ ...request, requester_team_id: team_id })
@@ -1226,12 +1360,14 @@ export function useCreateSubrentRequest() {
 
 export function useUpdateSubrentRequestStatus() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: "pending" | "accepted" | "rejected" | "cancelled" }) => {
       const { data, error } = await supabase
         .from("subrent_requests")
         .update({ status })
         .eq("id", id)
+        .or(`requester_team_id.eq.${requireActiveTeamId(activeTeamId)},provider_team_id.eq.${requireActiveTeamId(activeTeamId)}`)
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -1308,29 +1444,33 @@ export function useAddMissionMateriel() {
 // ============================================
 export function useStockMovements(materielId: string | undefined) {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["stock_movements", materielId],
+    queryKey: ["stock_movements", materielId, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("stock_movements")
         .select("*")
         .eq("materiel_id", materielId!)
+        .eq("team_id", activeTeamId)
         .order("movement_date", { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!materielId,
+    enabled: !!user && !!materielId && !!activeTeamId,
   });
 }
 
 export function useCreateStockMovement() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (movement: { materiel_id: string; type: string; quantity: number; reason?: string; notes?: string; movement_date?: string }) => {
       const { data, error } = await supabase
         .from("stock_movements")
-        .insert({ ...movement, user_id: user!.id })
+        .insert({ ...movement, user_id: user!.id, team_id: requireActiveTeamId(activeTeamId) })
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -1366,10 +1506,15 @@ export function useRemoveMissionMateriel() {
 // ============================================
 export function useDeleteDevis() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
       // Items are deleted by cascade in the DB
-      const { error } = await supabase.from("devis").delete().eq("id", id);
+      const { error } = await supabase
+        .from("devis")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
       return id;
     },
@@ -1386,9 +1531,14 @@ export function useDeleteDevis() {
 // ============================================
 export function useDeleteFacture() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("factures").delete().eq("id", id);
+      const { error } = await supabase
+        .from("factures")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
       return id;
     },
@@ -1405,26 +1555,30 @@ export function useDeleteFacture() {
 // ============================================
 export function useStorageLocations() {
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useQuery({
-    queryKey: ["storage_locations", user?.id],
+    queryKey: ["storage_locations", user?.id, activeTeamId],
     queryFn: async () => {
+      if (!activeTeamId) return [];
       const { data, error } = await supabase
         .from("storage_locations")
         .select("*")
+        .eq("team_id", activeTeamId)
         .order("name", { ascending: true });
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!activeTeamId,
   });
 }
 
 export function useCreateStorageLocation() {
   const qc = useQueryClient();
   const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (location: Omit<TablesInsert<"storage_locations">, "user_id" | "team_id">) => {
-      const team_id = await getTeamId(user!.id);
+      const team_id = await getTeamId(user!.id, activeTeamId);
       const { data, error } = await supabase
         .from("storage_locations")
         .insert({ ...location, user_id: user!.id, team_id })
@@ -1444,12 +1598,14 @@ export function useCreateStorageLocation() {
 
 export function useUpdateStorageLocation() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async ({ id, ...updates }: TablesUpdate<"storage_locations"> & { id: string }) => {
       const { data, error } = await supabase
         .from("storage_locations")
         .update(updates)
         .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId))
         .select()
         .maybeSingle();
       if (error) throw error;
@@ -1466,9 +1622,14 @@ export function useUpdateStorageLocation() {
 
 export function useDeleteStorageLocation() {
   const qc = useQueryClient();
+  const { activeTeamId } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("storage_locations").delete().eq("id", id);
+      const { error } = await supabase
+        .from("storage_locations")
+        .delete()
+        .eq("id", id)
+        .eq("team_id", requireActiveTeamId(activeTeamId));
       if (error) throw error;
       return id;
     },
@@ -1477,5 +1638,25 @@ export function useDeleteStorageLocation() {
       toast.success("Lieu de stockage supprimé");
     },
     onError: (e) => toast.error("Erreur lors de la suppression : " + e.message),
+  });
+}
+
+export function useSupplier(id: string | undefined) {
+  const { user } = useAuth();
+  const { activeTeamId } = useWorkspace();
+  return useQuery({
+    queryKey: ["suppliers", id, activeTeamId],
+    queryFn: async () => {
+      if (!activeTeamId) return null;
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select("*")
+        .eq("id", id!)
+        .eq("team_id", activeTeamId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && !!id && !!activeTeamId,
   });
 }

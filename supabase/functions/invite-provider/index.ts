@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import nodemailer from "npm:nodemailer@6.9.16";
+import { buildPublicAppUrl } from "../_shared/public-app-url.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -54,8 +55,21 @@ Deno.serve(async (req: Request) => {
         );
 
         // Verify inviter is admin/owner
-        const { data: team } = await adminClient
-            .from("teams").select("id, name, owner_id").eq("id", team_id).single();
+        let teamQuery = await adminClient
+            .from("teams")
+            .select("id, name, owner_id, workspace_slug")
+            .eq("id", team_id)
+            .single();
+
+        if (teamQuery.error && teamQuery.error.message.includes("workspace_slug")) {
+            teamQuery = await adminClient
+                .from("teams")
+                .select("id, name, owner_id")
+                .eq("id", team_id)
+                .single();
+        }
+
+        const team = teamQuery.data as { id: string; name: string; owner_id: string; workspace_slug?: string | null } | null;
 
         if (!team) {
             return new Response(JSON.stringify({ error: "Team not found", code: "ERR_INV_TEAM_NOT_FOUND" }), {
@@ -95,10 +109,10 @@ Deno.serve(async (req: Request) => {
             });
         }
 
-        // Email content
-        // Forcer l'URL de production pour la fiabilité des liens
-        const appUrl = "https://planify-5a976.web.app";
-        const acceptUrl = `${appUrl}/invitation?token=${encodeURIComponent(invitation.token)}`;
+        const acceptUrl = buildPublicAppUrl(req, "/invitation", {
+            workspaceIdentifier: team.workspace_slug ?? team.id,
+            searchParams: { token: invitation.token },
+        });
 
         const htmlContent = `
 <!DOCTYPE html>

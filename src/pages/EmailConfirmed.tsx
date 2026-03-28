@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 export default function EmailConfirmed() {
   const navigate = useNavigate();
@@ -16,9 +17,9 @@ export default function EmailConfirmed() {
   useEffect(() => {
     if (countdown <= 0) {
       if (user) {
-        navigate("/dashboard", { replace: true });
+        navigate(buildRelativeAppPath("/dashboard"), { replace: true });
       } else {
-        navigate("/login", { replace: true });
+        navigate(buildRelativeAppPath("/login"), { replace: true });
       }
       return;
     }
@@ -55,7 +56,9 @@ export default function EmailConfirmed() {
 
           <div className="pt-2 space-y-3">
             <Button
-              onClick={() => user ? navigate("/dashboard") : navigate("/login")}
+              onClick={() =>
+                user ? navigate(buildRelativeAppPath("/dashboard")) : navigate(buildRelativeAppPath("/login"))
+              }
               className="w-full gradient-primary text-white rounded-xl hover:opacity-90"
             >
               {user ? "Accéder au tableau de bord" : "Se connecter"}

@@ -3,19 +3,23 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useUserRole, canAccess } from "@/hooks/use-user-role";
 import { useFailsafeRedirect } from "@/hooks/use-failsafe-redirect";
+import { useWorkspace } from "@/hooks/use-workspace";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCcw, LogOut, User } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requiredSection?: string;
+  allowWithoutWorkspace?: boolean;
 }
 
-export function ProtectedRoute({ children, requiredSection }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, requiredSection, allowWithoutWorkspace = false }: ProtectedRouteProps) {
   const { user, loading, signOut } = useAuth();
   const { data: roleData, isLoading: roleLoading } = useUserRole();
+  const { status: workspaceStatus, memberships, activeWorkspaceIdentifier } = useWorkspace();
   const { shouldBlock, clearFailsafe } = useFailsafeRedirect();
   const queryClient = useQueryClient();
   const [timedOut, setTimedOut] = useState(false);
@@ -92,7 +96,7 @@ export function ProtectedRoute({ children, requiredSection }: ProtectedRouteProp
               onClick={() => {
                 clearFailsafe();
                 localStorage.clear();
-                window.location.href = "/login";
+                window.location.href = buildRelativeAppPath("/login");
               }}
               className="w-full gap-2 rounded-xl h-11 transition-all active:scale-95"
             >
@@ -105,7 +109,7 @@ export function ProtectedRoute({ children, requiredSection }: ProtectedRouteProp
     );
   }
 
-  if (loading || (user && roleLoading && !timedOut) || isSigningOut) {
+  if (loading || workspaceStatus === "loading" || (user && roleLoading && !timedOut) || isSigningOut) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -118,12 +122,115 @@ export function ProtectedRoute({ children, requiredSection }: ProtectedRouteProp
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
-
-  if (!user.email_confirmed_at) {
-    return <Navigate to={`/verify-email?email=${encodeURIComponent(user.email || "")}`} replace />;
+  if (!user) {
+    return (
+      <Navigate
+        to={buildRelativeAppPath("/login", { workspaceIdentifier: activeWorkspaceIdentifier })}
+        replace
+      />
+    );
   }
 
+  if (!user.email_confirmed_at) {
+    return (
+      <Navigate
+        to={buildRelativeAppPath("/verify-email", {
+          workspaceIdentifier: activeWorkspaceIdentifier,
+          searchParams: { email: user.email ?? "" },
+        })}
+        replace
+      />
+    );
+  }
+
+  if (!allowWithoutWorkspace && workspaceStatus === "needs-selection") {
+    return (
+      <Navigate
+        to={buildRelativeAppPath("/select-workspace", {
+          workspaceIdentifier: activeWorkspaceIdentifier,
+          searchParams: { redirect: `${location.pathname}${location.search}` },
+        })}
+        replace
+      />
+    );
+  }
+
+  if (!allowWithoutWorkspace && workspaceStatus === "not-authorized") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full bg-card rounded-3xl shadow-card border border-border/80 p-8 text-center space-y-6">
+          <div className="w-16 h-16 bg-destructive/10 text-destructive rounded-2xl flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-bold text-foreground">Workspace inaccessible</h2>
+            <p className="text-muted-foreground text-sm leading-7">
+              Le workspace demandé ne correspond à aucun accès actif sur votre compte. Choisissez un autre espace avant de continuer.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3">
+            {memberships.length > 0 ? (
+              <Button
+                onClick={() =>
+                  window.location.assign(
+                    buildRelativeAppPath("/select-workspace", {
+                      searchParams: { redirect: `${location.pathname}${location.search}` },
+                    }),
+                  )
+                }
+                className="w-full gap-2 rounded-xl h-11"
+              >
+                <User className="w-4 h-4" />
+                Choisir un autre workspace
+              </Button>
+            ) : null}
+            <Button
+              variant="outline"
+              onClick={() => {
+                signOut().then(() => {
+                  window.location.assign(buildRelativeAppPath("/login"));
+                });
+              }}
+              className="w-full gap-2 rounded-xl h-11"
+            >
+              <LogOut className="w-4 h-4" />
+              Se déconnecter
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!allowWithoutWorkspace && workspaceStatus === "no-team") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="max-w-md w-full bg-card rounded-3xl shadow-card border border-border/80 p-8 text-center space-y-6">
+          <div className="w-16 h-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto">
+            <User className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-xl font-display font-bold text-foreground">Aucun workspace disponible</h2>
+            <p className="text-muted-foreground text-sm leading-7">
+              Votre compte ne dispose pas encore d’un espace Planify exploitable. Déconnectez-vous puis reconnectez-vous si l’équipe vient d’être créée.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              signOut().then(() => {
+                window.location.assign(buildRelativeAppPath("/login"));
+              });
+            }}
+            className="w-full gap-2 rounded-xl h-11"
+          >
+            <LogOut className="w-4 h-4" />
+            Retour à la connexion
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Handle "authenticated but no DB profile" case (orphan session UI fallback)
   if (!roleData && !roleLoading && !loading) {
@@ -145,7 +252,7 @@ export function ProtectedRoute({ children, requiredSection }: ProtectedRouteProp
               onClick={() => {
                 localStorage.clear();
                 signOut().then(() => {
-                  window.location.href = "/login";
+                  window.location.href = buildRelativeAppPath("/login");
                 });
               }}
               className="w-full gap-2 rounded-xl h-11 transition-all active:scale-95"
@@ -174,12 +281,12 @@ export function ProtectedRoute({ children, requiredSection }: ProtectedRouteProp
 
   // If a section is required, check role access
   if (requiredSection && roleData && !canAccess(roleData.role, requiredSection)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={buildRelativeAppPath("/dashboard", { workspaceIdentifier: activeWorkspaceIdentifier })} replace />;
   }
 
   // Force onboarding for prestataires
   if (roleData?.role === "prestataire" && !roleData.isOnboarded && location.pathname !== "/onboarding/prestataire") {
-    return <Navigate to="/onboarding/prestataire" replace />;
+    return <Navigate to={buildRelativeAppPath("/onboarding/prestataire", { workspaceIdentifier: activeWorkspaceIdentifier })} replace />;
   }
 
   return <>{children}</>;

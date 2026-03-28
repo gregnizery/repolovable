@@ -13,6 +13,7 @@ import {
     Database
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 export default function Reforme2026() {
     const navigate = useNavigate();
@@ -52,7 +53,7 @@ export default function Reforme2026() {
                         <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center text-sm font-bold text-white">P</div>
                         <span className="font-display font-bold text-lg">Planify</span>
                     </div>
-                    <Button variant="outline" className="rounded-xl" onClick={() => navigate("/login")}>Accéder à mon espace</Button>
+                    <Button variant="outline" className="rounded-xl" onClick={() => navigate(buildRelativeAppPath("/login"))}>Accéder à mon espace</Button>
                 </div>
             </header>
 
@@ -195,7 +196,7 @@ export default function Reforme2026() {
                 <section className="text-center">
                     <h2 className="text-3xl font-display font-bold mb-6">Préparez demain, dès aujourd'hui</h2>
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <Button size="lg" className="gradient-primary text-white rounded-xl px-8" onClick={() => navigate("/register")}>
+                        <Button size="lg" className="gradient-primary text-white rounded-xl px-8" onClick={() => navigate(buildRelativeAppPath("/register"))}>
                             Créer mon compte Planify
                         </Button>
                         <Button size="lg" variant="outline" className="rounded-xl px-8 group" onClick={() => navigate("/")}>

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useWorkspace } from "@/hooks/use-workspace";
 
 export type AppRole = "admin" | "manager" | "technicien" | "prestataire" | "superadmin";
 
@@ -14,21 +15,13 @@ interface UserRoleData {
 
 export function useUserRole() {
   const { user } = useAuth();
+  const { activeMembership, activeTeamId, refreshKey, status } = useWorkspace();
 
   return useQuery<UserRoleData | null>({
-    queryKey: ["user-role", user?.id],
+    queryKey: ["user-role", user?.id, refreshKey],
     queryFn: async () => {
       if (!user) return null;
-      // 1. Fetch team membership
-      const { data: memberData, error: memberError } = await supabase
-        .from("team_members")
-        .select("role, team_id, teams(owner_id)")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (memberError) {
-        console.error("Error fetching team_members:", memberError);
-      }
+      const memberData = activeMembership;
 
       // 2. Fetch profile (for is_superadmin) separately to avoid join issues
       const { data: profileData, error: profileError } = await supabase
@@ -57,11 +50,12 @@ export function useUserRole() {
       }
 
       let isOnboarded = true;
-      if (memberData.role === "prestataire") {
+      if (memberData.role === "prestataire" && activeTeamId) {
         const { data: providerData } = await supabase
           .from("providers")
           .select("is_onboarded")
           .eq("user_id", user.id)
+          .eq("team_id", activeTeamId)
           .maybeSingle();
         isOnboarded = !!providerData?.is_onboarded;
       }
@@ -74,7 +68,7 @@ export function useUserRole() {
         isOnboarded
       };
     },
-    enabled: !!user,
+    enabled: !!user && status !== "loading",
     staleTime: 5 * 60 * 1000,
   });
 }

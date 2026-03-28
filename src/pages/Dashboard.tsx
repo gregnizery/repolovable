@@ -1,33 +1,72 @@
 import { useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  CalendarClock,
+  CreditCard,
+  FileText,
+  Package,
+  Receipt,
+  ScanLine,
+  Users,
+  Wrench,
+} from "lucide-react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { WorkspaceHero, WorkspaceKpiCard, WorkspaceKpiGrid, WorkspacePage } from "@/components/layout/Workspace";
 import { Button } from "@/components/ui/button";
-import { useClients, useMissions, useDevisList, useFactures, usePaiements, useMateriel, usePendingProofs } from "@/hooks/use-data";
-import { Users, FileText, Receipt, DollarSign, Package, CalendarClock, Scan, CheckSquare, ClipboardList, Settings, ArrowRight } from "lucide-react";
+import {
+  DenseTable,
+  DenseTableBody,
+  DenseTableCell,
+  DenseTableHead,
+  DenseTableHeader,
+  DenseTableRow,
+  MetricStrip,
+  SectionHeader,
+  StatusPill,
+  WorkbenchPanel,
+} from "@/components/workbench/primitives";
+import {
+  useClients,
+  useDevisList,
+  useFactures,
+  useMateriel,
+  useMissions,
+  usePaiements,
+  usePendingProofs,
+} from "@/hooks/use-data";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
-import { RevenueChart } from "@/components/charts/RevenueChart";
-import { MissionStatusChart } from "@/components/charts/MissionStatusChart";
 import { useUserRole } from "@/hooks/use-user-role";
-import { DailyPriorities } from "@/components/dashboard/DailyPriorities";
-import { QuickActions } from "@/components/dashboard/QuickActions";
-import { NotificationsSection } from "@/components/dashboard/NotificationsSection";
-import { MaterielStatus } from "@/components/dashboard/MaterielStatus";
-import { UpcomingMissionsList } from "@/components/dashboard/UpcomingMissionsList";
+import { formatCompactCurrency, formatCount, formatCurrency, formatDateLabel, formatDayLabel } from "@/lib/formatters";
+import type {
+  DevisListItem,
+  EquipmentListItem,
+  FactureListItem,
+  MissionListItem,
+  PaiementListItem,
+} from "@/lib/view-models";
+
+type PendingProofItem = {
+  id: string;
+  created_at: string;
+  factures?: {
+    id: string;
+    number: string | null;
+    clients?: { name: string | null } | null;
+  } | null;
+};
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { data: roleData } = useUserRole();
   const role = roleData?.role || "prestataire";
-  const isAdmin = role === "admin";
-  const isManager = role === "manager";
+  const isPilot = role === "admin" || role === "manager";
 
-  const { data: clients = [] } = useClients(isAdmin || isManager);
+  const { data: clients = [] } = useClients(isPilot);
   const { data: missions = [] } = useMissions();
-  const { data: devisList = [] } = useDevisList(isAdmin || isManager);
-  const { data: factures = [] } = useFactures(isAdmin || isManager);
-  const { data: paiements = [] } = usePaiements(isAdmin || isManager);
+  const { data: devisList = [] } = useDevisList(isPilot);
+  const { data: factures = [] } = useFactures(isPilot);
+  const { data: paiements = [] } = usePaiements(isPilot);
   const { data: materiel = [] } = useMateriel(role !== "prestataire");
-  const { data: pendingProofs = [] } = usePendingProofs(isAdmin || isManager);
+  const { data: pendingProofs = [] } = usePendingProofs(isPilot);
 
   useRealtimeSync("materiel", [["materiel"]]);
   useRealtimeSync("missions", [["missions"]]);
@@ -37,264 +76,290 @@ export default function Dashboard() {
   useRealtimeSync("clients", [["clients"]]);
   useRealtimeSync("payment_proofs", [["payment_proofs", "pending"]]);
 
-  const totalRevenue = paiements.reduce((s, p) => s + Number(p.amount), 0);
-  const pendingDevis = devisList.filter(d => d.status === "envoyé");
-  const unpaidFactures = factures.filter(f => f.status === "en_retard" || f.status === "envoyée");
-  const upcomingMissions = missions.filter(m => m.status === "planifiée");
-  const overdueFactures = factures.filter(f => f.status === "en_retard");
-  const draftDevis = devisList.filter(d => d.status === "brouillon");
+  const missionRows = missions as MissionListItem[];
+  const devisRows = devisList as DevisListItem[];
+  const factureRows = factures as FactureListItem[];
+  const paiementRows = paiements as PaiementListItem[];
+  const equipmentRows = materiel as EquipmentListItem[];
+  const pendingProofRows = pendingProofs as PendingProofItem[];
 
-  const nextMissionDate = [...upcomingMissions]
-    .filter(m => m.start_date)
-    .sort((a, b) => new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime())[0];
+  const plannedMissions = missionRows
+    .filter((mission) => mission.status === "planifiée")
+    .sort((left, right) => new Date(left.start_date ?? 0).getTime() - new Date(right.start_date ?? 0).getTime());
+  const unpaidFactures = factureRows.filter((facture) => facture.status === "en_retard" || facture.status === "envoyée");
+  const pendingDevis = devisRows.filter((devis) => devis.status === "envoyé");
+  const draftDevis = devisRows.filter((devis) => devis.status === "brouillon");
+  const pendingCash = paiementRows.filter((paiement) => paiement.method === "espèces" && paiement.validation_status === "pending");
+  const lowStock = equipmentRows.filter((item) => item.quantity <= 1 && item.status !== "hors_service");
+  const inMaintenance = equipmentRows.filter((item) => item.status === "maintenance");
+  const nextMission = plannedMissions[0];
+  const collectedAmount = paiementRows.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const dueAmount = unpaidFactures.reduce((sum, facture) => sum + Number(facture.total_ttc || 0), 0);
+  const availableEquipment = equipmentRows.filter((item) => item.status === "disponible").length;
 
-  const totalEquipment = materiel.length;
-  const availableEquipment = materiel.filter(m => m.status === "disponible").length;
-  const totalValue = materiel.reduce((s, m) => s + (Number(m.purchase_price) || 0) * m.quantity, 0);
-  const lowStock = materiel.filter(m => m.quantity <= 1 && m.status !== "hors_service");
-  const inMission = materiel.filter(m => m.status === "en_mission").length;
-  const inMaintenance = materiel.filter(m => m.status === "maintenance").length;
-  const pendingCash = paiements.filter(p => p.method === "espèces" && p.validation_status === "pending");
-  const recentSignedDevis = devisList
-    .filter(d => d.status === "signé")
-    .sort((a, b) => new Date(b.signed_at || b.date).getTime() - new Date(a.signed_at || a.date).getTime())
-    .slice(0, 5);
-
-  const dashboardConfig = (() => {
-    if (role === "admin") {
-      return {
-        eyebrow: "Pilotage",
-        title: "Centre de contrôle",
-        description: "Vue d’ensemble des tensions commerciales, des relances finance et des prochaines missions pour piloter l’activité sans changer de contexte.",
-        primaryAction: { label: "Nouvelle mission", onClick: () => navigate("/missions/nouveau") },
-        secondaryAction: { label: "Nouveau devis", onClick: () => navigate("/finance/devis/nouveau") },
-        tertiaryAction: { label: "Ajouter un client", onClick: () => navigate("/clients/nouveau") },
-        metrics: [
-          { label: "Cash encaissé", value: `${(totalRevenue / 1000).toFixed(0)}K€`, detail: `${paiements.length} paiement(s)`, icon: DollarSign, tone: "bg-primary/12 text-primary" },
-          { label: "Clients actifs", value: clients.length, detail: "Relation en cours", icon: Users, tone: "bg-info/12 text-info" },
-          { label: "Devis à signer", value: pendingDevis.length, detail: `${pendingDevis.reduce((s, d) => s + Number(d.total_ttc), 0).toLocaleString("fr-FR")}€`, icon: FileText, tone: "bg-warning/12 text-warning" },
-          { label: "Factures à relancer", value: unpaidFactures.length, detail: `${unpaidFactures.reduce((s, f) => s + Number(f.total_ttc), 0).toLocaleString("fr-FR")}€`, icon: Receipt, tone: "bg-destructive/12 text-destructive" },
-        ],
-        priorities: [
-          { title: "Factures en retard", value: overdueFactures.length, detail: overdueFactures.length > 0 ? "Relance à enclencher aujourd’hui" : "Aucune urgence de recouvrement", tone: overdueFactures.length > 0 ? "text-destructive" : "text-success" },
-          { title: "Brouillons à finaliser", value: draftDevis.length, detail: draftDevis.length > 0 ? "Transformer les brouillons en signatures" : "Aucun devis en attente", tone: "text-warning" },
-          { title: "Prochaine mission", value: nextMissionDate?.start_date ? new Date(nextMissionDate.start_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "--", detail: nextMissionDate ? nextMissionDate.title : "Aucune mission planifiée", tone: "text-info" },
-        ],
-        actions: [
-          { label: "Nouvelle mission", href: "/missions/nouveau", icon: CalendarClock },
-          { label: "Nouveau devis", href: "/finance/devis/nouveau", icon: FileText },
-          { label: "Ajouter un client", href: "/clients/nouveau", icon: Users },
-          { label: "Ajouter du matériel", href: "/materiel/nouveau", icon: Package },
-        ],
-        showNotifications: true,
-        showMateriel: true,
-        showRevenue: true,
-        showMissionChart: true,
-      };
-    }
-
-    if (role === "manager") {
-      return {
-        eyebrow: "Opérations",
-        title: "Hub opérations",
-        description: "Coordonnez planning, disponibilité matériel et chantiers commerciaux avec un cockpit dense, pensé pour l’orchestration quotidienne.",
-        primaryAction: { label: "Nouvelle mission", onClick: () => navigate("/missions/nouveau") },
-        secondaryAction: { label: "Nouveau client", onClick: () => navigate("/clients/nouveau") },
-        tertiaryAction: { label: "Voir le parc", onClick: () => navigate("/materiel") },
-        metrics: [
-          { label: "Missions planifiées", value: upcomingMissions.length, detail: "Agenda en préparation", icon: CalendarClock, tone: "bg-primary/12 text-primary" },
-          { label: "Clients actifs", value: clients.length, detail: "Base opérationnelle", icon: Users, tone: "bg-info/12 text-info" },
-          { label: "Matériel disponible", value: availableEquipment, detail: `/ ${totalEquipment}`, icon: Package, tone: "bg-warning/12 text-warning" },
-          { label: "Devis en attente", value: pendingDevis.length, detail: "À transformer", icon: FileText, tone: "bg-info/12 text-info" },
-        ],
-        priorities: [
-          { title: "Prochaine mission", value: nextMissionDate?.start_date ? new Date(nextMissionDate.start_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "--", detail: nextMissionDate ? nextMissionDate.title : "Aucune mission planifiée", tone: "text-primary" },
-          { title: "Alertes stock", value: lowStock.length, detail: lowStock.length > 0 ? "Réassort ou sous-location à prévoir" : "Stock stable", tone: lowStock.length > 0 ? "text-warning" : "text-success" },
-          { title: "Brouillons à finir", value: draftDevis.length, detail: "Synchroniser commerce et terrain", tone: "text-info" },
-        ],
-        actions: [
-          { label: "Nouvelle mission", href: "/missions/nouveau", icon: CalendarClock },
-          { label: "Nouveau client", href: "/clients/nouveau", icon: Users },
-          { label: "Inventaire matériel", href: "/materiel", icon: Package },
-        ],
-        showNotifications: false,
-        showMateriel: true,
-        showRevenue: false,
-        showMissionChart: true,
-      };
-    }
-
-    if (role === "technicien") {
-      return {
-        eyebrow: "Terrain",
-        title: "Console terrain",
-        description: "Accédez en un coup d’œil au prochain départ, au matériel mobilisé et aux actions terrain sans surcharger l’interface.",
-        primaryAction: { label: "Scanner matériel", onClick: () => navigate("/materiel/scan") },
-        secondaryAction: { label: "Voir les mouvements", onClick: () => navigate("/materiel/mouvements") },
-        tertiaryAction: { label: "Mon planning", onClick: () => navigate("/missions") },
-        metrics: [
-          { label: "Missions à venir", value: upcomingMissions.length, detail: "Planning personnel", icon: CalendarClock, tone: "bg-primary/12 text-primary" },
-          { label: "Matériel dispo", value: availableEquipment, detail: "Prêt au départ", icon: Package, tone: "bg-success/12 text-success" },
-          { label: "En maintenance", value: inMaintenance, detail: "À vérifier", icon: Package, tone: "bg-destructive/12 text-destructive" },
-          { label: "Flux logistique", value: "Actif", detail: "Scan + sorties stock", icon: ClipboardList, tone: "bg-info/12 text-info" },
-        ],
-        priorities: [
-          { title: "Prochaine mission", value: nextMissionDate?.start_date ? new Date(nextMissionDate.start_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "--", detail: nextMissionDate ? `${nextMissionDate.title} · ${nextMissionDate.location || ""}` : "Aucune mission à venir", tone: "text-primary" },
-          { title: "Maintenance", value: inMaintenance, detail: "Contrôles à effectuer", tone: inMaintenance > 0 ? "text-warning" : "text-success" },
-          { title: "Stock bas", value: lowStock.length, detail: lowStock.length > 0 ? "Signaler au manager" : "Pas d’alerte bloquante", tone: lowStock.length > 0 ? "text-destructive" : "text-success" },
-        ],
-        actions: [
-          { label: "Scanner matériel", href: "/materiel/scan", icon: Scan },
-          { label: "Parc matériel", href: "/materiel", icon: Package },
-          { label: "Mouvements batch", href: "/materiel/mouvements", icon: ClipboardList },
-        ],
-        showNotifications: false,
-        showMateriel: true,
-        showRevenue: false,
-        showMissionChart: false,
-      };
-    }
-
-    return {
-      eyebrow: "Prestataire",
-      title: "Workspace prestataire",
-      description: "Retrouvez vos assignations, les prochaines échéances et les accès utiles dans une interface recentrée sur l’exécution.",
-      primaryAction: { label: "Voir mes missions", onClick: () => navigate("/missions") },
-      secondaryAction: { label: "Mon profil", onClick: () => navigate("/parametres") },
-      tertiaryAction: { label: "Mon planning", onClick: () => navigate("/missions") },
-      metrics: [
-        { label: "Missions à venir", value: upcomingMissions.length, detail: "Planning affecté", icon: CalendarClock, tone: "bg-primary/12 text-primary" },
-        { label: "Missions terminées", value: missions.filter(m => m.status === "terminée").length, detail: "Historique validé", icon: CheckSquare, tone: "bg-success/12 text-success" },
-        { label: "Paiements", value: "À jour", detail: "Suivi administratif", icon: DollarSign, tone: "bg-info/12 text-info" },
-        { label: "Profil", value: "Complet", detail: "Informations à jour", icon: Settings, tone: "bg-primary/12 text-primary" },
-      ],
-      priorities: [
-        { title: "Prochaine mission", value: nextMissionDate?.start_date ? new Date(nextMissionDate.start_date).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "--", detail: nextMissionDate ? nextMissionDate.title : "Aucune mission à venir", tone: "text-primary" },
-        { title: "Statut", value: "Assigné", detail: "En attente de démarrage", tone: "text-info" },
-        { title: "Documents", value: "0", detail: "Aucune pièce manquante", tone: "text-success" },
-      ],
-      actions: [
-        { label: "Consulter mon planning", href: "/missions", icon: CalendarClock },
-        { label: "Détails de mission", href: "/missions", icon: FileText },
-        { label: "Mon profil prestataire", href: "/parametres", icon: Settings },
-      ],
-      showNotifications: false,
-      showMateriel: false,
-      showRevenue: false,
-      showMissionChart: false,
-    };
-  })();
-
-  const cockpitAside = (
-    <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-      <div className="rounded-[24px] border border-border/70 bg-card/90 p-4 shadow-sm backdrop-blur-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Prochaine étape
-        </p>
-        <p className="mt-2 text-lg font-display font-semibold text-foreground">
-          {nextMissionDate ? nextMissionDate.title : "Aucune mission imminente"}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {nextMissionDate?.start_date
-            ? new Date(nextMissionDate.start_date).toLocaleString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }).replace(" à", " -")
-            : "Le cockpit vous indiquera ici la prochaine action opérationnelle."}
-        </p>
-      </div>
-      <div className="rounded-[24px] border border-border/70 bg-card/90 p-4 shadow-sm backdrop-blur-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Tension finance
-        </p>
-        <p className="mt-2 text-2xl font-display font-bold text-destructive">
-          {unpaidFactures.length}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          facture(s) à surveiller, dont {overdueFactures.length} en retard.
-        </p>
-      </div>
-      <div className="rounded-[24px] border border-border/70 bg-card/90 p-4 shadow-sm backdrop-blur-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Flux parc
-        </p>
-        <p className="mt-2 text-2xl font-display font-bold text-foreground">
-          {availableEquipment}/{totalEquipment || 0}
-        </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          équipements disponibles, {lowStock.length} alerte(s) faible stock.
-        </p>
-      </div>
-    </div>
-  );
+  const actions = isPilot
+    ? [
+        { label: "Nouvelle mission", icon: CalendarClock, onClick: () => navigate("/missions/nouveau") },
+        { label: "Nouveau devis", icon: FileText, onClick: () => navigate("/finance/devis/nouveau") },
+        { label: "Ajouter un client", icon: Users, onClick: () => navigate("/clients/nouveau") },
+      ]
+    : [
+        { label: "Scanner le parc", icon: ScanLine, onClick: () => navigate("/materiel/scan") },
+        { label: "Voir mes missions", icon: CalendarClock, onClick: () => navigate("/missions") },
+      ];
 
   return (
     <AppLayout>
-      <WorkspacePage>
-        <WorkspaceHero
-          eyebrow={dashboardConfig.eyebrow}
-          title={dashboardConfig.title}
-          description={dashboardConfig.description}
-          actions={(
-            <>
-              <Button className="gap-2 rounded-2xl" onClick={dashboardConfig.primaryAction.onClick}>
-                <CalendarClock className="h-4 w-4" />
-                {dashboardConfig.primaryAction.label}
-              </Button>
-              <Button variant="outline" className="gap-2 rounded-2xl" onClick={dashboardConfig.secondaryAction.onClick}>
-                <FileText className="h-4 w-4" />
-                {dashboardConfig.secondaryAction.label}
-              </Button>
-              <Button variant="ghost" className="gap-2 rounded-2xl text-muted-foreground" onClick={dashboardConfig.tertiaryAction.onClick}>
-                {dashboardConfig.tertiaryAction.label}
-                <ArrowRight className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-          aside={cockpitAside}
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4">
+        <SectionHeader
+          eyebrow={isPilot ? "Pilotage quotidien" : "Espace opérationnel"}
+          title="Tableau de bord"
+          description={
+            isPilot
+              ? "Lecture immédiate des tensions commerciales, des missions à enclencher et des validations qui bloquent la journée."
+              : "Vue synthétique de vos prochaines tâches, de la disponibilité matériel et des validations à suivre."
+          }
+          actions={actions.map((action, index) => (
+            <Button key={action.label} variant={index === 0 ? "default" : "outline"} onClick={action.onClick} className="gap-2">
+              <action.icon className="h-4 w-4" />
+              {action.label}
+            </Button>
+          ))}
         />
 
-        <WorkspaceKpiGrid>
-          {dashboardConfig.metrics.map((metric) => (
-            <WorkspaceKpiCard
-              key={metric.label}
-              label={metric.label}
-              value={metric.value}
-              detail={metric.detail}
-              icon={metric.icon}
-              toneClassName={metric.tone}
-            />
-          ))}
-        </WorkspaceKpiGrid>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(320px,0.9fr)]">
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <DailyPriorities priorities={dashboardConfig.priorities} />
-              <QuickActions actions={dashboardConfig.actions} />
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)]">
+          <WorkbenchPanel
+            title="À traiter aujourd’hui"
+            description="Les sujets qui méritent une décision ou une action avant de reprendre le flux courant."
+          >
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl border border-destructive/20 bg-destructive/10 p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-destructive">Relances</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{formatCount(unpaidFactures.length)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatCurrency(dueAmount)} à encaisser.</p>
+              </div>
+              <div className="rounded-xl border border-warning/25 bg-warning/20 p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-warning-foreground">Signatures</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{formatCount(pendingDevis.length)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{draftDevis.length} brouillon(s) encore ouverts.</p>
+              </div>
+              <div className="rounded-xl border border-info/25 bg-info/15 p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-info-foreground">Prochaine mission</p>
+                <p className="mt-2 text-lg font-semibold text-foreground">{nextMission?.title ?? "Aucune mission imminente"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{formatDateLabel(nextMission?.start_date)}</p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-background p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Blocages terrain</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{formatCount(lowStock.length + inMaintenance.length)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {lowStock.length} stock critique, {inMaintenance.length} en maintenance.
+                </p>
+              </div>
             </div>
+          </WorkbenchPanel>
 
-            {dashboardConfig.showNotifications && (
-              <NotificationsSection pendingProofs={pendingProofs} pendingCash={pendingCash} recentSignedDevis={recentSignedDevis} />
+          <WorkbenchPanel title="Cadence" description="Indicateurs du poste de pilotage.">
+            <div className="space-y-3">
+              <div className="rounded-xl border border-border/80 bg-background p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Preuves de paiement</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{formatCount(pendingProofRows.length)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">justificatif(s) à contrôler.</p>
+              </div>
+              <div className="rounded-xl border border-border/80 bg-background p-4">
+                <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Espèces à valider</p>
+                <p className="mt-2 text-2xl font-semibold text-foreground">{formatCount(pendingCash.length)}</p>
+                <p className="mt-1 text-sm text-muted-foreground">paiement(s) en validation manuelle.</p>
+              </div>
+            </div>
+          </WorkbenchPanel>
+        </div>
+
+        <MetricStrip
+          items={[
+            {
+              label: "Encaissements",
+              value: formatCompactCurrency(collectedAmount),
+              detail: `${paiementRows.length} règlement(s) saisis`,
+              icon: CreditCard,
+              tone: "primary",
+            },
+            {
+              label: "Missions planifiées",
+              value: formatCount(plannedMissions.length),
+              detail: nextMission ? `prochaine le ${formatDayLabel(nextMission.start_date)}` : "aucune mission planifiée",
+              icon: CalendarClock,
+              tone: "info",
+            },
+            {
+              label: "Clients actifs",
+              value: formatCount(clients.length),
+              detail: isPilot ? "base relation en cours" : "non prioritaire pour ce rôle",
+              icon: Users,
+              tone: "default",
+            },
+            {
+              label: "Parc disponible",
+              value: `${formatCount(availableEquipment)}/${formatCount(equipmentRows.length)}`,
+              detail: `${formatCount(lowStock.length)} alerte(s) stock`,
+              icon: Package,
+              tone: "success",
+            },
+          ]}
+        />
+
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+          <WorkbenchPanel
+            title="Opérations"
+            description="Missions en préparation, affectations et points de friction logistique."
+            action={
+              <Button variant="ghost" className="gap-2" onClick={() => navigate("/missions")}>
+                Ouvrir les missions
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            }
+          >
+            {plannedMissions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Aucune mission planifiée pour le moment.</p>
+            ) : (
+              <DenseTable>
+                <DenseTableHeader>
+                  <DenseTableRow>
+                    <DenseTableHead>Mission</DenseTableHead>
+                    <DenseTableHead>Date</DenseTableHead>
+                    <DenseTableHead>Client</DenseTableHead>
+                    <DenseTableHead>Lieu</DenseTableHead>
+                    <DenseTableHead>Équipe</DenseTableHead>
+                    <DenseTableHead className="text-right">Budget</DenseTableHead>
+                  </DenseTableRow>
+                </DenseTableHeader>
+                <DenseTableBody>
+                  {plannedMissions.slice(0, 6).map((mission) => (
+                    <DenseTableRow key={mission.id} className="cursor-pointer" onClick={() => navigate(`/missions/${mission.id}`)}>
+                      <DenseTableCell>
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">{mission.title}</p>
+                          <StatusPill label="Planifiée" tone="info" />
+                        </div>
+                      </DenseTableCell>
+                      <DenseTableCell className="font-mono text-xs text-muted-foreground">
+                        {formatDateLabel(mission.start_date)}
+                      </DenseTableCell>
+                      <DenseTableCell>{mission.clients?.name ?? "Client non renseigné"}</DenseTableCell>
+                      <DenseTableCell className="text-muted-foreground">{mission.location || "À confirmer"}</DenseTableCell>
+                      <DenseTableCell className="text-muted-foreground">
+                        {mission.mission_assignments?.length ? `${mission.mission_assignments.length} personne(s)` : "À affecter"}
+                      </DenseTableCell>
+                      <DenseTableCell className="text-right font-mono">{formatCurrency(mission.amount ?? 0)}</DenseTableCell>
+                    </DenseTableRow>
+                  ))}
+                </DenseTableBody>
+              </DenseTable>
             )}
-
-            {dashboardConfig.showMateriel && (
-              <MaterielStatus
-                totalEquipment={totalEquipment}
-                availableEquipment={availableEquipment}
-                inMission={inMission}
-                totalValue={role === "technicien" ? 0 : totalValue}
-                lowStock={lowStock}
-                inMaintenance={inMaintenance}
-              />
-            )}
-
-            <UpcomingMissionsList missions={upcomingMissions} />
-          </div>
+          </WorkbenchPanel>
 
           <div className="space-y-4">
-            {dashboardConfig.showRevenue && <RevenueChart paiements={paiements} />}
-            {dashboardConfig.showMissionChart && <MissionStatusChart missions={missions} />}
+            <WorkbenchPanel
+              title="Finance"
+              description="Ce qui attend une relance, une signature ou une validation."
+              action={
+                <Button variant="ghost" className="gap-2" onClick={() => navigate("/finance/devis")}>
+                  Ouvrir la finance
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              }
+            >
+              <div className="space-y-3">
+                {pendingDevis.slice(0, 3).map((devis) => (
+                  <button
+                    key={devis.id}
+                    onClick={() => navigate(`/finance/devis/${devis.id}`)}
+                    className="flex w-full items-center justify-between rounded-xl border border-border/80 bg-background px-4 py-3 text-left transition-colors hover:border-primary/30"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{devis.number}</p>
+                      <p className="text-xs text-muted-foreground">{devis.clients?.name ?? "Client non renseigné"}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <StatusPill label={devis.status} tone="warning" />
+                      <span className="font-mono text-xs text-muted-foreground">{formatCurrency(devis.total_ttc)}</span>
+                    </div>
+                  </button>
+                ))}
+                {pendingDevis.length === 0 ? <p className="text-sm text-muted-foreground">Aucun devis en attente de signature.</p> : null}
+
+                {unpaidFactures.slice(0, 3).map((facture) => (
+                  <button
+                    key={facture.id}
+                    onClick={() => navigate(`/finance/factures/${facture.id}`)}
+                    className="flex w-full items-center justify-between rounded-xl border border-border/80 bg-background px-4 py-3 text-left transition-colors hover:border-primary/30"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{facture.number}</p>
+                      <p className="text-xs text-muted-foreground">{facture.clients?.name ?? "Client non renseigné"}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <StatusPill label={facture.status === "en_retard" ? "En retard" : "Envoyée"} tone="destructive" />
+                      <span className="font-mono text-xs text-muted-foreground">{formatCurrency(facture.total_ttc)}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </WorkbenchPanel>
+
+            <WorkbenchPanel title="Parc" description="Stock bas, maintenance et disponibilités réelles.">
+              <div className="space-y-3">
+                {lowStock.slice(0, 3).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-border/80 bg-background px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.category || "Sans catégorie"}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <StatusPill label="Stock critique" tone="warning" />
+                      <span className="font-mono text-xs text-muted-foreground">Qté {item.quantity}</span>
+                    </div>
+                  </div>
+                ))}
+                {inMaintenance.slice(0, 2).map((item) => (
+                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-border/80 bg-background px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.category || "Sans catégorie"}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <StatusPill label="Maintenance" tone="destructive" />
+                      <Wrench className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  </div>
+                ))}
+                {lowStock.length === 0 && inMaintenance.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Aucune tension logistique détectée.</p>
+                ) : null}
+              </div>
+            </WorkbenchPanel>
+
+            {pendingProofRows.length > 0 ? (
+              <WorkbenchPanel title="Justificatifs" description="Contrôles administratifs en attente.">
+                <div className="space-y-3">
+                  {pendingProofRows.slice(0, 3).map((proof) => (
+                    <button
+                      key={proof.id}
+                      onClick={() => navigate("/notifications")}
+                      className="flex w-full items-center justify-between rounded-xl border border-border/80 bg-background px-4 py-3 text-left transition-colors hover:border-primary/30"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{proof.factures?.number ?? "Preuve sans facture"}</p>
+                        <p className="text-xs text-muted-foreground">{proof.factures?.clients?.name ?? "Client non renseigné"}</p>
+                      </div>
+                      <span className="font-mono text-xs text-muted-foreground">{formatDateLabel(proof.created_at)}</span>
+                    </button>
+                  ))}
+                </div>
+              </WorkbenchPanel>
+            ) : null}
           </div>
         </div>
-      </WorkspacePage>
+      </div>
     </AppLayout>
   );
 }

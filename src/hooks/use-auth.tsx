@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { User, Session } from "@supabase/supabase-js";
+import { buildPublicAppUrl } from "@/lib/public-app-url";
+import { persistWorkspaceIdentifier } from "@/lib/workspace-routing";
 
 interface AuthContextType {
   user: User | null;
@@ -46,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/email-confirmed`,
+        emailRedirectTo: buildPublicAppUrl("/email-confirmed"),
         data: cleanedMetadata,
       },
     });
@@ -63,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    persistWorkspaceIdentifier(null);
     await supabase.auth.signOut();
   };
 
