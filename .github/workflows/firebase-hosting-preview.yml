@@ -13,8 +13,8 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     env:
-      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://dtrofhxpazhnobhjrjmu.supabase.co' }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_VIi-wRypp7djOjcXoBpLDQ_IEUtJVdc' }}
       VITE_PUBLIC_APP_URL: ${{ vars.VITE_PUBLIC_APP_URL || 'https://planify-5a976.web.app' }}
       VITE_MARKETING_URL: ${{ vars.VITE_MARKETING_URL || 'https://planify-5a976.web.app' }}
       VITE_LOGISTIQUE_APP_URL: ${{ vars.VITE_LOGISTIQUE_APP_URL || 'https://planify-5a976-logistique.web.app' }}
