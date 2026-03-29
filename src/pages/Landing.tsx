@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Check, Menu, MoveRight, Radio } from "lucide-react";
 import { CookieBanner } from "@/components/public/CookieBanner";
+import { StatusPill } from "@/components/workbench/primitives";
 import { buildRelativeAppPath } from "@/lib/public-app-url";
 
 type LandingWindow = Window & {
@@ -75,9 +76,9 @@ const typewriterMessages = [
 ];
 
 const schedulerLabels = [
-  "Chefs de projet",
-  "Techniciens",
-  "Chauffeurs",
+  "Clients",
+  "Prestataires",
+  "Accès",
 ];
 
 const protocolCards = [
@@ -399,6 +400,9 @@ export default function Landing() {
   const [shuffleCards, setShuffleCards] = useState(shuffleCardsBase);
   const loginPath = buildRelativeAppPath("/login");
   const registerPath = buildRelativeAppPath("/register");
+  const logistiquePath = buildRelativeAppPath("/logistique");
+  const facturationPath = buildRelativeAppPath("/facturation");
+  const administrationPath = buildRelativeAppPath("/administration");
 
   const manifestoText = useMemo(
     () => ({
@@ -700,49 +704,63 @@ export default function Landing() {
           <SectionEyebrow dark>Modules clés</SectionEyebrow>
           <div className="mt-6 max-w-3xl">
             <h2 className="font-landing-sans text-4xl font-semibold tracking-[-0.07em] text-white md:text-6xl">
-              Trois modules qui reprennent la logique réelle du logiciel.
+              Trois modules pour structurer la suite Planify dès aujourd&apos;hui.
             </h2>
             <p className="mt-5 max-w-2xl text-base leading-8 text-white/72">
-              La page montre le même système que l'application: une vue claire sur la facturation, la logistique et
-              les équipes pour garder les opérations lisibles du devis jusqu'au départ terrain.
+              La suite reste dans une seule application, mais elle expose déjà trois entrées claires pour la
+              logistique, la facturation et l&apos;administration avant le futur découpage en sous-domaines.
             </p>
           </div>
 
           <div className="mt-14 grid gap-6 xl:grid-cols-3">
             <article className="rounded-[2.5rem] border border-white/10 bg-[#171311] p-6 shadow-[0_20px_55px_rgba(0,0,0,0.2)]">
-              <p className="font-landing-mono text-[11px] uppercase tracking-[0.26em] text-white/54">Facturation</p>
-              <h3 className="mt-3 font-landing-sans text-2xl font-semibold tracking-[-0.05em] text-white">Vue devis et factures</h3>
+              <p className="font-landing-mono text-[11px] uppercase tracking-[0.26em] text-white/54">Planify Facturation</p>
+              <h3 className="mt-3 font-landing-sans text-2xl font-semibold tracking-[-0.05em] text-white">Devis, factures et paiements</h3>
               <p className="mt-2 max-w-sm text-sm leading-7 text-white/72">
                 Devis, factures et paiements remontent comme une pile active pour donner la prochaine action
                 financière à traiter.
               </p>
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <StatusPill label="futur : facturation.planify.<domaine>" tone="warning" className="border-white/10 bg-white/6 text-white/70" />
+                <MagneticButton variant="dark" onClick={() => navigate(facturationPath)}>
+                  Ouvrir
+                </MagneticButton>
+              </div>
               <div className="mt-8">
                 <ShuffleCard cards={shuffleCards} />
               </div>
             </article>
 
             <article className="rounded-[2.5rem] border border-white/10 bg-[#171311] p-6 shadow-[0_20px_55px_rgba(0,0,0,0.2)]">
-              <p className="font-landing-mono text-[11px] uppercase tracking-[0.26em] text-white/54">
-                Logistique avancée
-              </p>
-              <h3 className="mt-3 font-landing-sans text-2xl font-semibold tracking-[-0.05em] text-white">Flux logistique</h3>
+              <p className="font-landing-mono text-[11px] uppercase tracking-[0.26em] text-white/54">Planify Logistique</p>
+              <h3 className="mt-3 font-landing-sans text-2xl font-semibold tracking-[-0.05em] text-white">Missions, parc et transport</h3>
               <p className="mt-2 max-w-sm text-sm leading-7 text-white/72">
                 Les arbitrages matériel, timing, transports et conflits restent visibles avant le départ et pendant la
                 préparation.
               </p>
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <StatusPill label="futur : logistique.planify.<domaine>" tone="warning" className="border-white/10 bg-white/6 text-white/70" />
+                <MagneticButton variant="dark" onClick={() => navigate(logistiquePath)}>
+                  Ouvrir
+                </MagneticButton>
+              </div>
               <div className="mt-8">
                 <TypewriterCard valueProp="Logistique avancée" />
               </div>
             </article>
 
             <article className="rounded-[2.5rem] border border-white/10 bg-[#171311] p-6 shadow-[0_20px_55px_rgba(0,0,0,0.2)]">
-              <p className="font-landing-mono text-[11px] uppercase tracking-[0.26em] text-white/54">
-                Gestion d'équipes
-              </p>
-              <h3 className="mt-3 font-landing-sans text-2xl font-semibold tracking-[-0.05em] text-white">Planning et affectations</h3>
+              <p className="font-landing-mono text-[11px] uppercase tracking-[0.26em] text-white/54">Planify Administration</p>
+              <h3 className="mt-3 font-landing-sans text-2xl font-semibold tracking-[-0.05em] text-white">Clients, accès et gouvernance</h3>
               <p className="mt-2 max-w-sm text-sm leading-7 text-white/72">
-                Les affectations suivent les jours critiques et les rôles terrain pour éviter les trous de couverture.
+                Les comptes, prestataires et réglages restent regroupés dans le même poste de commande pour l&apos;équipe.
               </p>
+              <div className="mt-5 flex items-center justify-between gap-3">
+                <StatusPill label="futur : administration.planify.<domaine>" tone="warning" className="border-white/10 bg-white/6 text-white/70" />
+                <MagneticButton variant="dark" onClick={() => navigate(administrationPath)}>
+                  Ouvrir
+                </MagneticButton>
+              </div>
               <div className="mt-8">
                 <SchedulerCard labels={schedulerLabels} />
               </div>
@@ -966,7 +984,7 @@ export default function Landing() {
           </div>
           <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 text-sm text-white/60 md:flex-row md:items-center md:justify-between">
             <span>© 2026 Planify. Pilotage logistique événementiel.</span>
-            <span className="font-landing-mono uppercase tracking-[0.24em]">Dashboard / Missions / Finance</span>
+            <span className="font-landing-mono uppercase tracking-[0.24em]">Planify / Logistique / Facturation / Administration</span>
           </div>
         </div>
       </footer>

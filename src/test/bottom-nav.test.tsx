@@ -20,10 +20,10 @@ describe("BottomNav", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText("Accueil")).toBeInTheDocument();
-    expect(screen.getByText("Missions")).toBeInTheDocument();
-    expect(screen.getByText("Finance")).toBeInTheDocument();
-    expect(screen.getByText("Parc")).toBeInTheDocument();
+    expect(screen.getByText("Planify")).toBeInTheDocument();
+    expect(screen.getByText("Logistique")).toBeInTheDocument();
+    expect(screen.getByText("Facturation")).toBeInTheDocument();
+    expect(screen.getByText("Admin")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /menu/i }));
     expect(onMenuOpen).toHaveBeenCalledTimes(1);

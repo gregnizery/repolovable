@@ -10,6 +10,7 @@ import {
   Package,
   QrCode,
   Receipt,
+  Rows3,
   Settings,
   ShieldAlert,
   ShoppingCart,
@@ -30,6 +31,15 @@ export interface NavigationGroup {
 }
 
 export const navGroups: NavigationGroup[] = [
+  {
+    label: "Suite Planify",
+    items: [
+      { title: "Planify", path: "/dashboard", icon: LayoutDashboard, section: "dashboard" },
+      { title: "Planify Logistique", path: "/logistique", icon: Package, section: "missions" },
+      { title: "Planify Facturation", path: "/facturation", icon: Receipt, section: "finance" },
+      { title: "Planify Administration", path: "/administration", icon: Rows3, section: "parametres" },
+    ],
+  },
   {
     label: "Pilotage",
     items: [
@@ -76,64 +86,92 @@ export const navGroups: NavigationGroup[] = [
 ];
 
 export const shellQuickAccess: NavigationItem[] = [
-  { title: "Accueil", path: "/dashboard", icon: LayoutDashboard, section: "dashboard" },
-  { title: "Missions", path: "/missions", icon: Calendar, section: "missions" },
-  { title: "Finance", path: "/finance/devis", icon: FileText, section: "finance" },
-  { title: "Parc", path: "/materiel", icon: Package, section: "materiel" },
+  { title: "Planify", path: "/dashboard", icon: LayoutDashboard, section: "dashboard" },
+  { title: "Logistique", path: "/logistique", icon: Package, section: "missions" },
+  { title: "Facturation", path: "/facturation", icon: Receipt, section: "finance" },
+  { title: "Admin", path: "/administration", icon: Rows3, section: "parametres" },
 ];
 
 export function getPageMeta(pathname: string) {
+  if (pathname === "/dashboard" || pathname.startsWith("/dashboard/")) {
+    return {
+      title: "Planify",
+      description: "Portail commun de la suite logistique, facturation et administration.",
+    };
+  }
+
+  if (pathname.startsWith("/logistique")) {
+    return {
+      title: "Planify Logistique",
+      description: "Missions, calendrier, parc, transports et opérations terrain.",
+    };
+  }
+
+  if (pathname.startsWith("/facturation")) {
+    return {
+      title: "Planify Facturation",
+      description: "Devis, factures, paiements et flux financiers d'exploitation.",
+    };
+  }
+
+  if (pathname.startsWith("/administration")) {
+    return {
+      title: "Planify Administration",
+      description: "Clients, prestataires, accès et gouvernance du workspace.",
+    };
+  }
+
   if (pathname.startsWith("/missions")) {
     return {
-      title: pathname.includes("/nouveau") ? "Nouvelle mission" : "Missions",
+      title: pathname.includes("/nouveau") ? "Planify Logistique" : "Planify Logistique",
       description: "Planification, affectations et lecture terrain.",
     };
   }
 
   if (pathname.startsWith("/finance")) {
     return {
-      title: "Finance",
+      title: "Planify Facturation",
       description: "Devis, factures et encaissements.",
     };
   }
 
   if (pathname.startsWith("/materiel") || pathname.startsWith("/vehicules") || pathname.startsWith("/suppliers")) {
     return {
-      title: "Parc",
+      title: "Planify Logistique",
       description: "Disponibilité, stock et opérations logistiques.",
     };
   }
 
   if (pathname.startsWith("/clients")) {
     return {
-      title: "Clients",
+      title: "Planify Administration",
       description: "Suivi de compte et relation commerciale.",
     };
   }
 
   if (pathname.startsWith("/calendrier")) {
     return {
-      title: "Calendrier",
+      title: "Planify Logistique",
       description: "Vue planning et charge opérationnelle.",
     };
   }
 
   if (pathname.startsWith("/notifications")) {
     return {
-      title: "Notifications",
+      title: "Planify Administration",
       description: "Alertes, validations et événements récents.",
     };
   }
 
   if (pathname.startsWith("/parametres") || pathname.startsWith("/prestataires")) {
     return {
-      title: "Paramètres",
+      title: "Planify Administration",
       description: "Equipe, accès et réglages d'exploitation.",
     };
   }
 
   return {
-    title: "Tableau de bord",
-    description: "Priorités du jour, tensions et prochaines actions.",
+    title: "Planify",
+    description: "Portail commun de la suite logistique, facturation et administration.",
   };
 }

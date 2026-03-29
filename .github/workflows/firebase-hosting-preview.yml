@@ -1,0 +1,36 @@
+name: Deploy to Firebase Hosting preview on PR
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  build_and_preview:
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: https://dtrofhxpazhnobhjrjmu.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_VIi-wRypp7djOjcXoBpLDQ_IEUtJVdc
+      VITE_PUBLIC_APP_URL: https://planify-5a976.web.app
+      VITE_MARKETING_URL: https://planify-5a976.web.app
+      VITE_POC_WORKSPACE_PARAM_ENABLED: "true"
+      VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_PLANIFY_5A976 }}
+          projectId: planify-5a976

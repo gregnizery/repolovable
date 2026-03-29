@@ -53,6 +53,7 @@ const Vehicles = lazy(() => import("./pages/Vehicles"));
 const VehicleDetail = lazy(() => import("./pages/VehicleDetail"));
 const SupplierDetail = lazy(() => import("./pages/SupplierDetail"));
 const WorkspaceSelect = lazy(() => import("./pages/WorkspaceSelect"));
+const SuiteModulePage = lazy(() => import("./pages/SuiteModulePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -85,6 +86,9 @@ const App = () => (
                   <Route path="/verify-email" element={<VerifyEmail />} />
                   <Route path="/select-workspace" element={<ProtectedRoute allowWithoutWorkspace><WorkspaceSelect /></ProtectedRoute>} />
                   <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                  <Route path="/logistique" element={<ProtectedRoute requiredSection="missions"><SuiteModulePage moduleKey="logistique" /></ProtectedRoute>} />
+                  <Route path="/facturation" element={<ProtectedRoute requiredSection="finance"><SuiteModulePage moduleKey="facturation" /></ProtectedRoute>} />
+                  <Route path="/administration" element={<ProtectedRoute requiredSection="parametres"><SuiteModulePage moduleKey="administration" /></ProtectedRoute>} />
                   <Route path="/clients" element={<ProtectedRoute requiredSection="clients"><Clients /></ProtectedRoute>} />
                   <Route path="/clients/nouveau" element={<ProtectedRoute requiredSection="clients"><ClientForm /></ProtectedRoute>} />
                   <Route path="/clients/:id" element={<ProtectedRoute requiredSection="clients"><ClientDetail /></ProtectedRoute>} />

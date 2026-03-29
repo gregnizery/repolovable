@@ -77,7 +77,7 @@ export function AppSidebar({ mobileOpen, onMobileClose }: AppSidebarProps) {
           </div>
           {!collapsed ? (
             <div className="min-w-0">
-              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-sidebar-muted">Atelier</p>
+              <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-sidebar-muted">Suite</p>
               <p className="truncate text-lg font-semibold text-sidebar-accent-foreground">Planify</p>
             </div>
           ) : null}
